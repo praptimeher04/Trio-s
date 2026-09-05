@@ -29,8 +29,46 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>front</title>
+  <title>Campus Marketplace</title>
   <link rel="manifest" href="manifest.json">
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script>
+    function openRazorpayCheckout(keyId, amountInPaise, orderId, name, description, userEmail, userContact) {
+      var options = {
+        "key": keyId,
+        "amount": amountInPaise,
+        "currency": "INR",
+        "name": name || "Campus Marketplace",
+        "description": description || "Product Purchase",
+        "order_id": orderId,
+        "handler": function (response) {
+          if (window.onRazorpaySuccess) {
+            window.onRazorpaySuccess(response.razorpay_payment_id, response.razorpay_order_id, response.razorpay_signature);
+          }
+        },
+        "prefill": {
+          "name": "Hitija Mhatre",
+          "email": userEmail || "hitija@campus.edu",
+          "contact": userContact || "9876543210"
+        },
+        "notes": {
+          "address": "Campus Department"
+        },
+        "theme": {
+          "color": "#2563EB"
+        },
+        "modal": {
+          "ondismiss": function() {
+            if (window.onRazorpayDismiss) {
+              window.onRazorpayDismiss();
+            }
+          }
+        }
+      };
+      var rzp1 = new Razorpay(options);
+      rzp1.open();
+    }
+  </script>
 </head>
 <body>
   <!--

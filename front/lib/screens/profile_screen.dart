@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../services/session_service.dart';
 import 'login_screen.dart';
+import 'reseller_dashboard_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final String userName;
   final String userEmail;
   final String userRole;
+  final List<Map<String, String>> favoriteProducts;
+  final Function(Map<String, String>)? onRemoveFavorite;
 
   const ProfileScreen({
     super.key,
     required this.userName,
     required this.userEmail,
     this.userRole = 'Student',
+    this.favoriteProducts = const [],
+    this.onRemoveFavorite,
   });
 
   String get _initials {
@@ -48,13 +54,16 @@ class ProfileScreen extends StatelessWidget {
           IconButton(
             tooltip: 'Logout',
             icon: const Icon(Icons.logout_rounded, color: AppColors.error),
-            onPressed: () {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (context) => const LoginScreen(),
-                ),
-                (route) => false,
-              );
+            onPressed: () async {
+              await SessionService.clearSession();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                    builder: (context) => const LoginScreen(),
+                  ),
+                  (route) => false,
+                );
+              }
             },
           ),
           const SizedBox(width: 8),
@@ -137,6 +146,103 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(height: 24),
+
+                // 1.5. Favorite Products ❤️ Section
+                _buildSectionTitle('Favorite Products ❤️ (${favoriteProducts.length})'),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.surfaceBorder),
+                  ),
+                  child: favoriteProducts.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16.0),
+                          child: Column(
+                            children: [
+                              const Icon(Icons.favorite_border_rounded, size: 40, color: Color(0xFF94A3B8)),
+                              const SizedBox(height: 8),
+                              Text(
+                                'No Favorite Products Saved Yet',
+                                style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF475569)),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Tap the heart ❤️ button on any marketplace book or calculator to save it here for quick access!',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.poppins(fontSize: 11, color: const Color(0xFF94A3B8)),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Column(
+                          children: favoriteProducts.map((prod) {
+                            final title = prod['title'] ?? '';
+                            final price = prod['price'] ?? '';
+                            final seller = prod['seller'] ?? '';
+                            final image = prod['image'];
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: Row(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: (image != null && image.isNotEmpty)
+                                        ? Image.network(
+                                            image,
+                                            width: 48,
+                                            height: 48,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) => Container(
+                                              width: 48,
+                                              height: 48,
+                                              color: const Color(0xFFECFDF5),
+                                              child: const Icon(Icons.shopping_bag_outlined, color: Color(0xFF059669)),
+                                            ),
+                                          )
+                                        : Container(
+                                            width: 48,
+                                            height: 48,
+                                            color: const Color(0xFFECFDF5),
+                                            child: const Icon(Icons.shopping_bag_outlined, color: Color(0xFF059669)),
+                                          ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          title,
+                                          style: GoogleFonts.poppins(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          '$price • Seller: $seller',
+                                          style: GoogleFonts.poppins(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.favorite_rounded, color: Color(0xFFEF4444), size: 20),
+                                    onPressed: () {
+                                      if (onRemoveFavorite != null) {
+                                        onRemoveFavorite!(prod);
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
                 ),
                 const SizedBox(height: 24),
 
@@ -245,15 +351,44 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
 
-                // Logout Button
+                // Reseller Panel Option
                 ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.of(context).pushAndRemoveUntil(
+                    Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => const LoginScreen(),
+                        builder: (context) => ResellerDashboardScreen(
+                          resellerName: userName,
+                          resellerEmail: userEmail,
+                        ),
                       ),
-                      (route) => false,
                     );
+                  },
+                  icon: const Icon(Icons.storefront_rounded, color: Colors.white),
+                  label: const Text('Open Reseller Panel (Type 1)'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0B6E4F),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Logout Button
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    await SessionService.clearSession();
+                    if (context.mounted) {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
+                        (route) => false,
+                      );
+                    }
                   },
                   icon: const Icon(Icons.logout_rounded, color: Colors.white),
                   label: const Text('Sign Out of Account'),

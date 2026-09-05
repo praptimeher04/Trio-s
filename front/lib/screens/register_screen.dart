@@ -98,10 +98,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         });
 
         if (result['success'] == true) {
+          final userIdStr = result['userId'] != null ? ' (Database User ID: #${result['userId']})' : '';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result['message'] ?? 'Registration successful! Please login.'),
-              backgroundColor: AppColors.primary,
+              content: Text('🎉 ${result['message'] ?? 'User registered in database successfully!'}$userIdStr'),
+              backgroundColor: const Color(0xFF059669),
+              duration: const Duration(seconds: 4),
             ),
           );
 
@@ -119,6 +121,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             SnackBar(
               content: Text(result['message'] ?? 'Registration failed.'),
               backgroundColor: AppColors.error,
+              duration: const Duration(seconds: 4),
             ),
           );
         }

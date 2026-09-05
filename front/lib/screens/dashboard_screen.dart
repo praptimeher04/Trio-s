@@ -2,8 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/feature_modal.dart';
+import '../services/session_service.dart';
+import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
+import 'product_details_screen.dart';
+import 'chat_screen.dart';
+import 'cart_screen.dart';
+import 'reseller_dashboard_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String userName;
@@ -24,6 +30,96 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentBottomNavIndex = 0;
   int _unreadNotifications = 3;
+  int _selectedMarketplaceCategory = 0; // 0: Engineering, 1: Commerce, 2: Science, 3: Booked
+
+  final TextEditingController _searchController = TextEditingController();
+  String _marketplaceSearchQuery = '';
+
+  final Set<String> _likedProductTitles = {};
+  final Map<String, double> _productRatings = {};
+  final Map<String, String> _productReviews = {};
+
+  List<Map<String, String>> get _favoriteProductsList {
+    final all = [..._engineeringProducts, ..._commerceProducts, ..._scienceProducts, ..._bookedProducts];
+    final Map<String, Map<String, String>> unique = {};
+    for (final p in all) {
+      final t = p['title'];
+      if (t != null && _likedProductTitles.contains(t)) {
+        unique[t] = p;
+      }
+    }
+    return unique.values.toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMarketplaceProducts();
+  }
+
+  Future<void> _fetchMarketplaceProducts() async {
+    final fetched = await ApiService.getAllProducts();
+    if (mounted && fetched.isNotEmpty) {
+      setState(() {
+        for (final item in fetched) {
+          final cat = (item['tag'] ?? '').toLowerCase();
+          if (cat.contains('commerce') || cat.contains('finance') || cat.contains('bba') || cat.contains('b.com')) {
+            final exists = _commerceProducts.any((existing) => existing['title'] == item['title']);
+            if (!exists) _commerceProducts.insert(0, item);
+          } else if (cat.contains('science') || cat.contains('bio') || cat.contains('chem') || cat.contains('physics')) {
+            final exists = _scienceProducts.any((existing) => existing['title'] == item['title']);
+            if (!exists) _scienceProducts.insert(0, item);
+          } else {
+            final exists = _engineeringProducts.any((existing) => existing['title'] == item['title']);
+            if (!exists) _engineeringProducts.insert(0, item);
+          }
+        }
+      });
+    }
+  }
+
+  final List<Map<String, String>> _cartItems = [
+    {
+      'title': '📚 Data Structures & Algorithms (Cormen)',
+      'price': '₹350',
+      'seller': 'Sneha • CSE Dept',
+      'tag': 'Textbook',
+    },
+    {
+      'title': '⚡ Scientific Calculator Casio FX-991EX',
+      'price': '₹600',
+      'seller': 'Ankit • ECE Dept',
+      'tag': 'Electronics',
+    },
+  ];
+
+  final List<Map<String, String>> _bookedProducts = [
+    {
+      'title': '📚 Data Structures & Algorithms (Cormen)',
+      'price': '₹350',
+      'seller': 'Sneha • CSE Dept',
+      'tag': 'Textbook',
+      'condition': 'Reserved • Library Handover',
+    },
+    {
+      'title': '⚡ Scientific Calculator Casio FX-991EX',
+      'price': '₹600',
+      'seller': 'Ankit • ECE Dept',
+      'tag': 'Electronics',
+      'condition': 'Paid via Razorpay',
+    },
+    {
+      'title': '🚲 Hero Campus Bicycle (1-Year Used)',
+      'price': '₹1,800',
+      'seller': 'Vikrant • Mech Dept',
+      'tag': 'Vehicle',
+      'condition': 'Pickup Scheduled',
+    },
+  ];
+
+  final List<Map<String, String>> _engineeringProducts = [];
+  final List<Map<String, String>> _commerceProducts = [];
+  final List<Map<String, String>> _scienceProducts = [];
 
   String get _displayName {
     if (widget.userName.trim().isNotEmpty) {
@@ -54,6 +150,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         userName: _displayName,
         userEmail: widget.userEmail,
         userRole: widget.userRole,
+        favoriteProducts: _favoriteProductsList,
+        onRemoveFavorite: (prod) {
+          final t = prod['title'];
+          if (t != null) {
+            setState(() {
+              _likedProductTitles.remove(t);
+            });
+          }
+        },
       ),
     ];
 
@@ -64,102 +169,208 @@ class _DashboardScreenState extends State<DashboardScreen> {
         elevation: 1,
         shadowColor: Colors.black.withAlpha(15),
         automaticallyImplyLeading: false,
-        title: GestureDetector(
-          onTap: () {
-            setState(() {
-              _currentBottomNavIndex = 2; // Switch to Profile tab
-            });
-          },
-          child: Row(
-            children: [
-              // REAL USER AVATAR & INITIALS
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: AppColors.primary,
-                child: Text(
-                  _initials,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
+        leading: _currentBottomNavIndex != 0
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
+                onPressed: () {
+                  setState(() {
+                    _currentBottomNavIndex = 0; // Return to Home tab
+                  });
+                },
+              )
+            : null,
+        title: _currentBottomNavIndex == 1
+            ? Text(
+                'Campus Marketplace',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
                 ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _displayName,
+              )
+            : _currentBottomNavIndex == 2
+                ? Text(
+                    'My Profile',
                     style: GoogleFonts.poppins(
-                      fontSize: 14,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: AppColors.textPrimary,
                     ),
-                  ),
-                  Text(
-                    '${widget.userRole} • #2026-CS-892',
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
+                  )
+                : GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _currentBottomNavIndex = 2; // Switch to Profile tab
+                      });
+                    },
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: AppColors.primary,
+                          child: Text(
+                            _initials,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _displayName,
+                              style: GoogleFonts.poppins(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              '${widget.userRole} • #2026-CS-892',
+                              style: GoogleFonts.poppins(
+                                fontSize: 10.5,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ],
-          ),
-        ),
         actions: [
-          // NOTIFICATION BELL WITH BADGE COUNTER
-          Stack(
-            alignment: Alignment.topRight,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary, size: 26),
-                onPressed: () => _showNotificationsModal(context),
-              ),
-              if (_unreadNotifications > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: AppColors.error,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    child: Text(
-                      '$_unreadNotifications',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
+          if (_currentBottomNavIndex == 1) ...[
+            // MARKETPLACE ONLY: CART BUTTON (NO NOTIFICATION, NO LOGOUT)
+            Stack(
+              alignment: Alignment.topRight,
+              children: [
+                IconButton(
+                  tooltip: 'Shopping Cart',
+                  icon: const Icon(Icons.shopping_cart_outlined, color: AppColors.textPrimary, size: 24),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => CartScreen(
+                          cartItems: _cartItems,
+                          userName: widget.userName,
+                          userEmail: widget.userEmail,
+                          onCartCleared: () {
+                            setState(() {
+                              _cartItems.clear();
+                            });
+                          },
+                        ),
                       ),
-                      textAlign: TextAlign.center,
+                    );
+                  },
+                ),
+                if (_cartItems.isNotEmpty)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF059669),
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        '${_cartItems.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
+              ],
+            ),
+            const SizedBox(width: 8),
+          ] else ...[
+            // HOME & PROFILE TABS: Notifications & Logout Action
+            Stack(
+              alignment: Alignment.topRight,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary, size: 24),
+                  onPressed: () => _showNotificationsModal(context),
                 ),
-            ],
-          ),
-
-          // Logout Action
-          IconButton(
-            tooltip: 'Logout',
-            icon: const Icon(Icons.logout_rounded, color: AppColors.textSecondary, size: 22),
-            onPressed: () {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (context) => const LoginScreen(),
-                ),
-                (route) => false,
-              );
-            },
-          ),
-          const SizedBox(width: 8),
+                if (_unreadNotifications > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: AppColors.error,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 15,
+                        minHeight: 15,
+                      ),
+                      child: Text(
+                        '$_unreadNotifications',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            IconButton(
+              tooltip: 'Switch to Reseller Panel (Type 1)',
+              icon: const Icon(Icons.storefront_rounded, color: Color(0xFF0B6E4F), size: 24),
+              onPressed: () async {
+                await SessionService.saveSession(
+                  isLoggedIn: true,
+                  userType: 1,
+                  userName: _displayName,
+                  userEmail: widget.userEmail,
+                  userRole: 'Reseller',
+                );
+                if (context.mounted) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => ResellerDashboardScreen(
+                        resellerName: _displayName,
+                        resellerEmail: widget.userEmail,
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
+            IconButton(
+              tooltip: 'Logout',
+              icon: const Icon(Icons.logout_rounded, color: AppColors.textSecondary, size: 22),
+              onPressed: () async {
+                await SessionService.clearSession();
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
+                    (route) => false,
+                  );
+                }
+              },
+            ),
+            const SizedBox(width: 4),
+          ],
         ],
       ),
 
@@ -184,6 +395,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             setState(() {
               _currentBottomNavIndex = index;
             });
+            if (index == 1) {
+              _fetchMarketplaceProducts();
+            }
           },
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
@@ -252,25 +466,636 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- TAB 2: MARKETPLACE VIEW ---
   Widget _buildMarketplaceView() {
+    final categories = [
+      {'name': 'Engineering', 'icon': Icons.engineering_rounded},
+      {'name': 'Commerce', 'icon': Icons.storefront_rounded},
+      {'name': 'Science', 'icon': Icons.science_rounded},
+      {'name': 'Booked Items', 'icon': Icons.bookmark_added_rounded},
+    ];
+
+    List<Map<String, String>> currentProducts;
+    if (_selectedMarketplaceCategory == 1) {
+      currentProducts = _commerceProducts;
+    } else if (_selectedMarketplaceCategory == 2) {
+      currentProducts = _scienceProducts;
+    } else if (_selectedMarketplaceCategory == 3) {
+      currentProducts = _bookedProducts;
+    } else {
+      currentProducts = _engineeringProducts;
+    }
+
+    if (_marketplaceSearchQuery.isNotEmpty) {
+      currentProducts = currentProducts.where((prod) {
+        final title = (prod['title'] ?? '').toLowerCase();
+        final seller = (prod['seller'] ?? '').toLowerCase();
+        final tag = (prod['tag'] ?? '').toLowerCase();
+        return title.contains(_marketplaceSearchQuery) ||
+            seller.contains(_marketplaceSearchQuery) ||
+            tag.contains(_marketplaceSearchQuery);
+      }).toList();
+    }
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Campus Marketplace',
-            style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-          ),
-          Text(
             'Buy and sell books, equipment, and gear with verified campus peers.',
-            style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+            style: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF6B7280)),
+          ),
+          const SizedBox(height: 14),
+
+          // SEARCH BAR ABOVE SUB-TABS
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(8),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (val) {
+                setState(() {
+                  _marketplaceSearchQuery = val.trim().toLowerCase();
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Search product by name, seller or department...',
+                hintStyle: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF9CA3AF)),
+                prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF6B7280), size: 20),
+                suffixIcon: _marketplaceSearchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded, size: 18, color: Color(0xFF6B7280)),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _marketplaceSearchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // SUB-TABS: Engineering, Commerce, Science, Booked Items
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: List.generate(categories.length, (index) {
+                final isSelected = _selectedMarketplaceCategory == index;
+                final cat = categories[index];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedMarketplaceCategory = index;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFF0B6E4F) : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected ? const Color(0xFF0B6E4F) : const Color(0xFFD1D5DB),
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFF0B6E4F).withAlpha(50),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : [],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            cat['icon'] as IconData,
+                            size: 16,
+                            color: isSelected ? Colors.white : const Color(0xFF4B5563),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            cat['name'] as String,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected ? Colors.white : const Color(0xFF374151),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
           ),
           const SizedBox(height: 20),
-          _buildMarketplaceTile('📚 Data Structures & Algorithms Textbook', '₹350', 'Sneha • CSE Dept'),
-          _buildMarketplaceTile('🚲 Hero Campus Bicycle (1-Year Used)', '₹1,800', 'Vikrant • Mech Dept'),
-          _buildMarketplaceTile('⚡ Scientific Calculator Casio FX-991EX', '₹600', 'Ankit • ECE Dept'),
-          _buildMarketplaceTile('🧪 Engineering Lab Coat & Safety Goggles', '₹250', 'Pooja • BioTech Dept'),
+
+          // CATEGORY PRODUCT LISTING HEADER
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${categories[_selectedMarketplaceCategory]['name']} Items (${currentProducts.length})',
+                style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF111827)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Verified Peers',
+                  style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF4B5563)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          if (currentProducts.isEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFECFDF5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.storefront_outlined,
+                      size: 40,
+                      color: Color(0xFF0B6E4F),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No products available in this category yet',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF111827),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Products published by resellers or peers will appear here.',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: const Color(0xFF6B7280),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            ...currentProducts.map((prod) {
+              return _buildMarketplaceTile(prod);
+            }),
+          ],
         ],
+      ),
+    );
+  }
+
+  void _showRatingDialog(Map<String, String> prod) {
+    final title = prod['title'] ?? 'Product';
+    double selectedRating = _productRatings[title] ?? 5.0;
+    final reviewController = TextEditingController(text: _productReviews[title] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  const Icon(Icons.star_rounded, color: Colors.amber, size: 28),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Rate & Review Product',
+                      style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF374151)),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Your Rating:',
+                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(5, (index) {
+                        final starVal = (index + 1).toDouble();
+                        return IconButton(
+                          icon: Icon(
+                            starVal <= selectedRating ? Icons.star_rounded : Icons.star_border_rounded,
+                            color: Colors.amber,
+                            size: 32,
+                          ),
+                          onPressed: () {
+                            setDialogState(() {
+                              selectedRating = starVal;
+                            });
+                          },
+                        );
+                      }),
+                    ),
+                    Center(
+                      child: Text(
+                        '${selectedRating.toInt()} / 5 Stars',
+                        style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber.shade800),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Write a Review:',
+                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: reviewController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: 'Share your experience with this product...',
+                        hintStyle: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF9CA3AF)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.all(12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('Cancel', style: GoogleFonts.poppins(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0B6E4F),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _productRatings[title] = selectedRating;
+                      _productReviews[title] = reviewController.text.trim();
+                    });
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Thank you! Rating saved for $title'),
+                        backgroundColor: const Color(0xFF0B6E4F),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  child: Text('Submit Review', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMarketplaceTile(Map<String, String> prod) {
+    final title = prod['title'] ?? '';
+    final price = prod['price'] ?? '';
+    final seller = prod['seller'] ?? '';
+    final tag = prod['tag'];
+    final condition = prod['condition'];
+    final imageUrl = prod['image'];
+    final isLiked = _likedProductTitles.contains(title);
+    final rating = _productRatings[title];
+    final review = _productReviews[title];
+    final isBookedCategory = _selectedMarketplaceCategory == 3;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(6),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => ProductDetailsScreen(
+                product: prod,
+                userName: widget.userName,
+                userEmail: widget.userEmail,
+              ),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // THUMBNAIL IMAGE (64x64)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      color: const Color(0xFFF3F4F6),
+                      child: imageUrl != null && imageUrl.isNotEmpty
+                          ? Image.network(
+                              imageUrl,
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Container(
+                                color: const Color(0xFFECFDF5),
+                                child: const Icon(Icons.shopping_bag_outlined, color: Color(0xFF0B6E4F), size: 28),
+                              ),
+                            )
+                          : Container(
+                              color: const Color(0xFFECFDF5),
+                              child: const Icon(Icons.shopping_bag_outlined, color: Color(0xFF0B6E4F), size: 28),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+
+                  // TITLE, SELLER, TAGS
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF111827),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          seller,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: const Color(0xFF6B7280),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            if (tag != null) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  tag,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF2563EB),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                            if (condition != null) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF3E8FF),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  condition,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF9333EA),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+
+                  // PRICE & ACTIONS
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            price,
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0B6E4F),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(4),
+                            tooltip: isLiked ? 'Remove from favorites' : 'Add to favorites',
+                            icon: Icon(
+                              isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                              size: 20,
+                              color: isLiked ? Colors.red : const Color(0xFF9CA3AF),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                if (isLiked) {
+                                  _likedProductTitles.remove(title);
+                                } else {
+                                  _likedProductTitles.add(title);
+                                }
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(6),
+                            tooltip: 'Chat with Reseller',
+                            icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Color(0xFF0B6E4F)),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => ChatScreen(
+                                    sellerName: seller,
+                                    productTitle: title,
+                                    productPrice: price,
+                                    productImage: imageUrl,
+                                    sellerAvatar: prod['avatar'] ?? (seller.isNotEmpty ? seller[0].toUpperCase() : 'S'),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 4),
+                          if (isBookedCategory)
+                            ElevatedButton.icon(
+                              onPressed: () => _showRatingDialog(prod),
+                              icon: const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
+                              label: Text(
+                                rating != null ? 'Edit Rate' : 'Rate',
+                                style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0B6E4F),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                elevation: 0,
+                              ),
+                            )
+                          else
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => ProductDetailsScreen(
+                                      product: prod,
+                                      userName: widget.userName,
+                                      userEmail: widget.userEmail,
+                                    ),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0B6E4F),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                elevation: 0,
+                              ),
+                              child: Text(
+                                'View',
+                                style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              if (rating != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${rating.toStringAsFixed(1)} / 5.0',
+                        style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFFB45309)),
+                      ),
+                      if (review != null && review.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '"$review"',
+                            style: GoogleFonts.poppins(fontSize: 11, fontStyle: FontStyle.italic, color: const Color(0xFF78350F)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -566,33 +1391,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildMarketplaceTile(String title, String price, String seller) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.surfaceBorder),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.shopping_bag_outlined, color: Color(0xFF059669), size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: GoogleFonts.poppins(fontSize: 12.5, fontWeight: FontWeight.bold)),
-                Text(seller, style: GoogleFonts.poppins(fontSize: 10.5, color: AppColors.textSecondary)),
-              ],
-            ),
-          ),
-          Text(price, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF059669))),
-        ],
-      ),
-    );
-  }
 
   void _openWalletModal(BuildContext context) {
     FeatureModal.show(
@@ -731,4 +1529,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
 }

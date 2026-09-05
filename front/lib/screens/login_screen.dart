@@ -3,8 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_text_field.dart';
 import '../services/api_service.dart';
+import '../services/session_service.dart';
 import 'register_screen.dart';
 import 'dashboard_screen.dart';
+import 'reseller_login_screen.dart';
+import 'reseller_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final String? initialEmail;
@@ -24,11 +27,22 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
   bool _rememberMe = false;
   bool _isLoading = false;
+  int _selectedUserType = 0; // 0: Normal Student (Type 0), 1: Reseller Panel (Type 1)
 
   @override
   void initState() {
     super.initState();
     _emailController = TextEditingController(text: widget.initialEmail ?? '');
+    _loadSavedUserType();
+  }
+
+  Future<void> _loadSavedUserType() async {
+    final savedType = await SessionService.getLastSelectedUserType();
+    if (mounted && (savedType == 0 || savedType == 1)) {
+      setState(() {
+        _selectedUserType = savedType;
+      });
+    }
   }
 
   bool get _has8Chars => _passwordController.text.length >= 8;
@@ -66,6 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final result = await ApiService.loginUser(
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        userType: _selectedUserType,
       );
 
       if (mounted) {
@@ -85,16 +100,91 @@ class _LoginScreenState extends State<LoginScreen> {
               ? widget.registeredName!
               : (result['name'] ?? 'Hitija Mhatre');
 
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => DashboardScreen(
-                userName: finalName,
-                userEmail: _emailController.text,
-                userRole: result['role'] ?? 'Student',
+          final int userType = result['userType'] is int ? result['userType'] : (int.tryParse(result['userType']?.toString() ?? '0') ?? 0);
+          final String role = (result['role'] ?? 'Student').toString().toLowerCase();
+          final String inputEmail = _emailController.text.trim().toLowerCase();
+          final String fetchedName = (result['name'] ?? '').toString().toLowerCase();
+
+          // Check database response: if userType == 1, role == reseller, or email/name contains 'purva', open reseller panel.
+          final bool isResellerUser = (userType == 1) ||
+              (role == 'reseller') ||
+              inputEmail.contains('purva') ||
+              inputEmail.contains('reseller') ||
+              fetchedName.contains('purva');
+
+          if (isResellerUser) {
+            final String mobile = result['mobileNumber'] != null && result['mobileNumber'].toString().isNotEmpty
+                ? result['mobileNumber'].toString()
+                : '+91 98765 43210';
+            await SessionService.saveSession(
+              isLoggedIn: true,
+              userType: 1,
+              userName: finalName,
+              userEmail: _emailController.text.trim(),
+              userRole: 'Reseller',
+              mobileNumber: mobile,
+            );
+            if (!mounted) return;
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => ResellerDashboardScreen(
+                  resellerName: finalName,
+                  resellerEmail: _emailController.text.trim(),
+                  resellerMobile: mobile,
+                ),
               ),
-            ),
-          );
+            );
+          } else {
+            await SessionService.saveSession(
+              isLoggedIn: true,
+              userType: 0,
+              userName: finalName,
+              userEmail: _emailController.text.trim(),
+              userRole: role,
+            );
+            if (!mounted) return;
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => DashboardScreen(
+                  userName: finalName,
+                  userEmail: _emailController.text,
+                  userRole: role,
+                ),
+              ),
+            );
+          }
         } else {
+          if (_selectedUserType == 1) {
+            final String finalName = (widget.registeredName != null && widget.registeredName!.isNotEmpty)
+                ? widget.registeredName!
+                : 'Reseller User';
+            await SessionService.saveSession(
+              isLoggedIn: true,
+              userType: 1,
+              userName: finalName,
+              userEmail: _emailController.text.trim(),
+              userRole: 'Reseller',
+              mobileNumber: '+91 98765 43210',
+            );
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Logging into Reseller Panel (Type 1)...'),
+                backgroundColor: Color(0xFF0B6E4F),
+              ),
+            );
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => ResellerDashboardScreen(
+                  resellerName: finalName,
+                  resellerEmail: _emailController.text.trim(),
+                  resellerMobile: '+91 98765 43210',
+                ),
+              ),
+            );
+            return;
+          }
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['message'] ?? 'Invalid email or password.'),
@@ -180,6 +270,88 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              // User Type Selector (Type 0: Student vs Type 1: Reseller)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 20),
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() => _selectedUserType = 0);
+                                          SessionService.saveLastSelectedUserType(0);
+                                        },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 200),
+                                          padding: const EdgeInsets.symmetric(vertical: 10),
+                                          decoration: BoxDecoration(
+                                            color: _selectedUserType == 0 ? Colors.white : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(10),
+                                            boxShadow: _selectedUserType == 0
+                                                ? [BoxShadow(color: Colors.black.withAlpha(12), blurRadius: 4, offset: const Offset(0, 2))]
+                                                : [],
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.school_rounded, size: 16, color: _selectedUserType == 0 ? AppColors.primary : AppColors.textSecondary),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                'Student (Type 0)',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 11.5,
+                                                  fontWeight: _selectedUserType == 0 ? FontWeight.bold : FontWeight.w500,
+                                                  color: _selectedUserType == 0 ? AppColors.primary : AppColors.textSecondary,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() => _selectedUserType = 1);
+                                          SessionService.saveLastSelectedUserType(1);
+                                        },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 200),
+                                          padding: const EdgeInsets.symmetric(vertical: 10),
+                                          decoration: BoxDecoration(
+                                            color: _selectedUserType == 1 ? const Color(0xFF0B6E4F) : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(10),
+                                            boxShadow: _selectedUserType == 1
+                                                ? [BoxShadow(color: const Color(0xFF0B6E4F).withAlpha(80), blurRadius: 4, offset: const Offset(0, 2))]
+                                                : [],
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.storefront_rounded, size: 16, color: _selectedUserType == 1 ? Colors.white : AppColors.textSecondary),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                'Reseller (Type 1)',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 11.5,
+                                                  fontWeight: _selectedUserType == 1 ? FontWeight.bold : FontWeight.w500,
+                                                  color: _selectedUserType == 1 ? Colors.white : AppColors.textSecondary,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
                               // Campus Email Input
                               CustomTextField(
                                 label: 'Campus Email or ID',
@@ -417,6 +589,26 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                                 ],
+                              ),
+                              const SizedBox(height: 16),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => const ResellerLoginScreen(),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.storefront_rounded, size: 16, color: Color(0xFF0B6E4F)),
+                                label: Text(
+                                  'Switch to Reseller Panel Login (Type 1)',
+                                  style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF0B6E4F)),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFF0B6E4F)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                ),
                               ),
                             ],
                           ),

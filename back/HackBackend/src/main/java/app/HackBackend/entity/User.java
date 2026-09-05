@@ -30,6 +30,12 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    @Column(name = "user_type")
+    private Integer userType; // 0: Normal User, 1: Reseller
+
+    @Column(name = "mobile_number")
+    private String mobileNumber;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

@@ -15,6 +15,8 @@ public class AuthDTO {
         private String email;
         private String role;
         private String password;
+        private String mobileNumber;
+        private Integer userType;
     }
 
     @Data
@@ -23,6 +25,7 @@ public class AuthDTO {
     public static class LoginRequest {
         private String email;
         private String password;
+        private Integer userType;
     }
 
     @Data
@@ -36,5 +39,7 @@ public class AuthDTO {
         private String email;
         private String role;
         private Long userId;
+        private String mobileNumber;
+        private Integer userType;
     }
 }

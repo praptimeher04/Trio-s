@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
-import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
 
 void main() {
   runApp(const CampusFinancialApp());
@@ -15,7 +15,7 @@ class CampusFinancialApp extends StatelessWidget {
       title: 'Campus Financial Ecosystem',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const LoginScreen(),
+      home: const RegisterScreen(),
     );
   }
 }

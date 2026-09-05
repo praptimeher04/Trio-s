@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_text_field.dart';
+import '../services/api_service.dart';
 import 'login_screen.dart';
-import 'dashboard_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -69,33 +69,59 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _handleRegister() async {
-    if (_isFormValid && _formKey.currentState!.validate()) {
+    if (!_acceptTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please accept the Campus Terms & Privacy Policy.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    if (_formKey.currentState?.validate() ?? false) {
       setState(() {
         _isLoading = true;
       });
 
-      // Simulate API call to backend
-      await Future.delayed(const Duration(milliseconds: 1500));
+      // API Call to Spring Boot Auth Registration Endpoint
+      final result = await ApiService.registerUser(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        role: _selectedRole,
+        password: _passwordController.text,
+      );
 
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account registered! Welcome to Campus Ecosystem.'),
-            backgroundColor: AppColors.primary,
-          ),
-        );
-
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => DashboardScreen(
-              userEmail: _emailController.text,
+        if (result['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Registration successful! Please login.'),
+              backgroundColor: AppColors.primary,
             ),
-          ),
-        );
+          );
+
+          // Redirect directly to LoginScreen after successful registration
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => LoginScreen(
+                initialEmail: _emailController.text.trim(),
+                registeredName: _nameController.text.trim(),
+              ),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Registration failed.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
       }
     }
   }
@@ -263,7 +289,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               const SizedBox(height: 10),
                               CustomTextField(
                                 label: 'Full Name',
-                                hintText: 'e.g. Rahul Sharma',
+                                hintText: 'e.g. Hitija Mhatre',
                                 prefixIcon: Icons.account_circle_outlined,
                                 controller: _nameController,
                                 onChanged: (val) => setState(() {}),
@@ -277,7 +303,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               const SizedBox(height: 16),
                               CustomTextField(
                                 label: 'Campus Email',
-                                hintText: 'student@campus.edu',
+                                hintText: 'hitija@campus.edu',
                                 prefixIcon: Icons.email_outlined,
                                 controller: _emailController,
                                 keyboardType: TextInputType.emailAddress,
@@ -397,13 +423,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 duration: const Duration(milliseconds: 250),
                                 height: 50,
                                 decoration: BoxDecoration(
-                                  gradient: _isFormValid
+                                  gradient: !_isLoading
                                       ? AppColors.primaryGradient
                                       : const LinearGradient(
                                           colors: [Color(0xFFCBD5E1), Color(0xFF94A3B8)],
                                         ),
                                   borderRadius: BorderRadius.circular(16),
-                                  boxShadow: _isFormValid
+                                  boxShadow: !_isLoading
                                       ? [
                                           BoxShadow(
                                             color: AppColors.primary.withAlpha(80),
@@ -414,7 +440,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       : [],
                                 ),
                                 child: ElevatedButton(
-                                  onPressed: _isFormValid ? _handleRegister : null,
+                                  onPressed: !_isLoading ? _handleRegister : null,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.transparent,
                                     disabledBackgroundColor: Colors.transparent,

@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_text_field.dart';
+import '../services/api_service.dart';
 import 'register_screen.dart';
 import 'dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final String? initialEmail;
+  final String? registeredName;
+
+  const LoginScreen({super.key, this.initialEmail, this.registeredName});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -14,12 +18,18 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  late TextEditingController _emailController;
   final _passwordController = TextEditingController();
   
   bool _isPasswordVisible = false;
   bool _rememberMe = false;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController(text: widget.initialEmail ?? '');
+  }
 
   bool get _has8Chars => _passwordController.text.length >= 8;
   bool get _hasSpecialChar => RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(_passwordController.text);
@@ -47,26 +57,51 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleLogin() async {
-    if (_canSubmit && _formKey.currentState!.validate()) {
+    if (_formKey.currentState?.validate() ?? false) {
       setState(() {
         _isLoading = true;
       });
 
-      // Simulate API authentication call
-      await Future.delayed(const Duration(milliseconds: 1200));
+      // API Call to Spring Boot Auth Endpoint
+      final result = await ApiService.loginUser(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
-        
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => DashboardScreen(
-              userEmail: _emailController.text,
+
+        if (result['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Login successful!'),
+              backgroundColor: AppColors.primary,
             ),
-          ),
-        );
+          );
+
+          final String finalName = (widget.registeredName != null && widget.registeredName!.isNotEmpty)
+              ? widget.registeredName!
+              : (result['name'] ?? 'Hitija Mhatre');
+
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => DashboardScreen(
+                userName: finalName,
+                userEmail: _emailController.text,
+                userRole: result['role'] ?? 'Student',
+              ),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Invalid email or password.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
       }
     }
   }
@@ -92,7 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Distinct Login Top Hero Banner
+                      // Top Hero Banner
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
@@ -124,11 +159,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                             Text(
-                              'Sign in to access your wallet & passes',
+                              widget.registeredName != null && widget.registeredName!.isNotEmpty
+                                  ? 'Welcome, ${widget.registeredName}! Please sign in.'
+                                  : 'Sign in to access your wallet & passes',
                               style: GoogleFonts.poppins(
                                 fontSize: 12.5,
                                 color: Colors.white70,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ],
                         ),
@@ -290,13 +328,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                 duration: const Duration(milliseconds: 250),
                                 height: 50,
                                 decoration: BoxDecoration(
-                                  gradient: _canSubmit
+                                  gradient: !_isLoading
                                       ? AppColors.primaryGradient
                                       : const LinearGradient(
                                           colors: [Color(0xFFCBD5E1), Color(0xFF94A3B8)],
                                         ),
                                   borderRadius: BorderRadius.circular(16),
-                                  boxShadow: _canSubmit
+                                  boxShadow: !_isLoading
                                       ? [
                                           BoxShadow(
                                             color: AppColors.primary.withAlpha(80),
@@ -307,7 +345,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       : [],
                                 ),
                                 child: ElevatedButton(
-                                  onPressed: _canSubmit ? _handleLogin : null,
+                                  onPressed: !_isLoading ? _handleLogin : null,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.transparent,
                                     disabledBackgroundColor: Colors.transparent,

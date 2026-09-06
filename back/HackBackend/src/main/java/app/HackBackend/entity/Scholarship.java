@@ -18,6 +18,9 @@ public class Scholarship {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "scholarship_name")
+    private String scholarshipName;
+
     @Column(nullable = false)
     private String title;
 
@@ -32,16 +35,45 @@ public class Scholarship {
 
     private String criteria;
 
+    private String eligibility;
+
     private String deadline;
 
     @Column(length = 1000)
     private String description;
 
+    @Column(nullable = false)
+    private String status; // ACTIVE, INACTIVE
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        if (this.scholarshipName == null) {
+            this.scholarshipName = this.title;
+        }
+        if (this.title == null) {
+            this.title = this.scholarshipName;
+        }
+        if (this.eligibility == null) {
+            this.eligibility = this.criteria;
+        }
+        if (this.criteria == null) {
+            this.criteria = this.eligibility;
+        }
+        if (this.status == null) {
+            this.status = "ACTIVE";
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 }

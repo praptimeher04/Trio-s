@@ -39,10 +39,25 @@ public class Scholarship {
 
     private String deadline;
 
+    @Column(name = "available_seats")
+    private String availableSeats;
+
     @Column(length = 1000)
     private String description;
 
-    @Column(nullable = false)
+    @Column(name = "application_mode")
+    private String applicationMode; // IN_APP, EXTERNAL_WEBSITE
+
+    @Column(name = "external_website_url", length = 1000)
+    private String externalWebsiteUrl;
+
+    @Column(name = "external_website_name")
+    private String externalWebsiteName;
+
+    @Column(name = "external_website_status")
+    private String externalWebsiteStatus;
+
+    @Column(name = "status")
     private String status; // ACTIVE, INACTIVE
 
     @Column(name = "created_at")
@@ -69,6 +84,9 @@ public class Scholarship {
         }
         if (this.status == null) {
             this.status = "ACTIVE";
+        }
+        if (this.applicationMode == null) {
+            this.applicationMode = "IN_APP";
         }
     }
 

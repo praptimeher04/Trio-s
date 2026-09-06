@@ -4,43 +4,29 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(name = "super_admins")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class SuperAdmin {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID id;
 
-    @Column(nullable = false)
-    private String name;
-
-    @Column(name = "full_name")
+    @Column(name = "full_name", nullable = false)
     private String fullName;
 
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false)
-    private String role; // Student, Reseller, Super Admin
-
-    @Column(nullable = false)
-    private String password;
-
-    @Column(name = "password_hash")
+    @Column(name = "password_hash", nullable = false)
     private String passwordHash;
-
-    @Column(name = "user_type", nullable = false)
-    private Integer userType; // 0: Student, 1: Admin, 2: Super Admin
-
-    @Column(name = "mobile_number")
-    private String mobileNumber;
 
     @Column(name = "phone_number")
     private String phoneNumber;
@@ -48,8 +34,11 @@ public class User {
     @Column(name = "profile_image")
     private String profileImage;
 
-    @Column(name = "status")
-    private String status; // ACTIVE, INACTIVE, BLOCKED
+    @Column(nullable = false)
+    private String role; // SUPER_ADMIN
+
+    @Column(nullable = false)
+    private String status; // ACTIVE, INACTIVE
 
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
@@ -59,6 +48,9 @@ public class User {
 
     @Column(name = "account_locked")
     private Boolean accountLocked;
+
+    @Column(name = "password_changed_at")
+    private LocalDateTime passwordChangedAt;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -70,14 +62,8 @@ public class User {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
-        if (this.fullName == null) {
-            this.fullName = this.name;
-        }
-        if (this.passwordHash == null) {
-            this.passwordHash = this.password;
-        }
-        if (this.phoneNumber == null) {
-            this.phoneNumber = this.mobileNumber;
+        if (this.role == null) {
+            this.role = "SUPER_ADMIN";
         }
         if (this.status == null) {
             this.status = "ACTIVE";
@@ -87,9 +73,6 @@ public class User {
         }
         if (this.accountLocked == null) {
             this.accountLocked = false;
-        }
-        if (this.userType == null) {
-            this.userType = 0;
         }
     }
 

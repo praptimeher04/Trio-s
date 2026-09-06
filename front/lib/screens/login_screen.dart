@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../widgets/custom_text_field.dart';
 import '../services/api_service.dart';
 import '../services/session_service.dart';
 import 'register_screen.dart';
@@ -259,16 +260,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           child: Column(
                             children: [
-<<<<<<< HEAD
                               // User Type Selector (Type 0: Student vs Type 1: Reseller vs Type 2: Admin)
-=======
-                              // Campus Wallet & Pass Badge Icon
->>>>>>> e6e877d725b8e9e8bb1d827b7bf52010bddab013
                               Container(
-                                width: 64,
-                                height: 64,
+                                width: double.infinity,
                                 decoration: BoxDecoration(
-<<<<<<< HEAD
                                   color: const Color(0xFFF1F5F9),
                                   borderRadius: BorderRadius.circular(14),
                                 ),
@@ -433,10 +428,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 decoration: BoxDecoration(
                                   color: AppColors.inputBackground,
                                   borderRadius: BorderRadius.circular(12),
-=======
-                                  color: Colors.white.withOpacity(0.20),
-                                  borderRadius: BorderRadius.circular(20),
->>>>>>> e6e877d725b8e9e8bb1d827b7bf52010bddab013
                                   border: Border.all(
                                     color: Colors.white.withOpacity(0.25),
                                     width: 1.2,

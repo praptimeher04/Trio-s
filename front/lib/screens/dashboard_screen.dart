@@ -20,7 +20,7 @@ class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     super.key,
     this.userName = 'Hitija Mhatre',
-    required this.userEmail,
+    this.userEmail = 'student@campus.edu',
     this.userRole = 'Student',
   });
 
@@ -235,19 +235,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
     // 4 Primary Navigation Tabs: Home, Marketplace, Scholarships, Profile
     final List<Widget> pages = [
       _buildHomeDashboardView(),
       _buildMarketplaceView(),
       ScholarshipScreen(userName: _displayName),
-=======
-    // 4 Clean Tabs: Home, Marketplace, Tracker, Profile
-    final List<Widget> pages = [
-      _buildHomeDashboardView(),
-      _buildMarketplaceView(),
-      _buildTrackerView(),
->>>>>>> e6e877d725b8e9e8bb1d827b7bf52010bddab013
       ProfileScreen(
         userName: _displayName,
         userEmail: widget.userEmail,
@@ -301,18 +293,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               )
             : _currentBottomNavIndex == 2
                 ? Text(
-<<<<<<< HEAD
                     'Scholarship Hub',
-=======
-                    'Savings & Expense Tracker',
->>>>>>> e6e877d725b8e9e8bb1d827b7bf52010bddab013
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: textPrimary,
                     ),
                   )
-<<<<<<< HEAD
                 : GestureDetector(
                     onTap: () {
                       setState(() {
@@ -341,47 +328,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
-=======
-                : _currentBottomNavIndex == 3
-                    ? Text(
-                        'My Profile',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: textPrimary,
-                        ),
-                      )
-                    : GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _currentBottomNavIndex = 3; // Switch to Profile tab
-                          });
-                        },
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Row(
->>>>>>> e6e877d725b8e9e8bb1d827b7bf52010bddab013
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              CircleAvatar(
-                                radius: 16,
-                                backgroundColor: AppColors.primary,
-                                child: Text(
-                                  _initials,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
                                   Text(
                                     _displayName,
                                     style: GoogleFonts.poppins(
@@ -568,13 +516,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               label: 'Marketplace',
             ),
             BottomNavigationBarItem(
-<<<<<<< HEAD
               icon: Icon(Icons.workspace_premium_rounded),
               label: 'Scholarships',
-=======
-              icon: Icon(Icons.analytics_rounded),
-              label: 'Tracker',
->>>>>>> e6e877d725b8e9e8bb1d827b7bf52010bddab013
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_rounded),
@@ -1482,11 +1425,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-<<<<<<< HEAD
   // --- MAIN FEATURE GRID (Scholarships, Marketplace, Wallet, Savings, Fee Tracker) ---
-=======
-  // --- MAIN FEATURE GRID (Marketplace, Reseller Panel, Wallet, Tracker, Savings, Fee Tracker) ---
->>>>>>> e6e877d725b8e9e8bb1d827b7bf52010bddab013
   Widget _buildMainFeatureGrid(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? AppColors.darkSurface : Colors.white;

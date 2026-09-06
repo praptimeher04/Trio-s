@@ -87,7 +87,7 @@ class CampusFinancialApp extends StatelessWidget {
             '/login': (context) => const LoginScreen(),
             '/register': (context) => const RegisterScreen(),
             '/student-dashboard': (context) => const DashboardScreen(),
-            '/admin-dashboard': (context) => const ResellerDashboardScreen(),
+            '/admin-dashboard': (context) => const ResellerDashboardScreen(resellerName: 'Reseller', resellerEmail: 'reseller@campus.edu'),
             '/super-admin-dashboard': (context) => const SuperAdminDashboardScreen(),
           },
           home: FutureBuilder<Map<String, dynamic>>(

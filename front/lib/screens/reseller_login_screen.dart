@@ -4,6 +4,8 @@ import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import '../services/session_service.dart';
 import 'reseller_register_screen.dart';
+import 'reseller_dashboard_screen.dart';
+import 'dashboard_screen.dart';
 
 class ResellerLoginScreen extends StatefulWidget {
   const ResellerLoginScreen({super.key});
@@ -66,31 +68,96 @@ class _ResellerLoginScreenState extends State<ResellerLoginScreen> {
       return;
     }
 
-    final String fallbackName = emailInput.isNotEmpty ? emailInput.split('@')[0] : 'Reseller Peer';
-    final String resellerName = res['success'] == true ? (res['name'] ?? fallbackName) : fallbackName;
-    final String resellerEmail = res['success'] == true ? (res['email'] ?? emailInput) : emailInput;
-    final String resellerMobile = res['success'] == true ? (res['mobileNumber'] ?? '+91 98765 43210') : '+91 98765 43210';
+    final int? userId = res['userId'] != null ? int.tryParse(res['userId'].toString()) : null;
+    int userType = returnedType == 0 && res['success'] == true ? 1 : returnedType;
+    String resellerName = res['name'] ?? (emailInput.isNotEmpty ? emailInput.split('@')[0] : 'Purva Mhatre');
+    String resellerEmail = res['email'] ?? emailInput;
+    String resellerMobile = res['mobileNumber'] ?? '+91 98765 43210';
+    String userRole = res['role'] ?? (userType == 1 ? 'Reseller' : 'Student');
 
-    await SessionService.saveSession(
-      isLoggedIn: true,
-      userType: 1,
-      userName: resellerName,
-      userEmail: resellerEmail,
-      userRole: 'Admin',
-      mobileNumber: resellerMobile,
-    );
+    if (userId != null && userId > 0) {
+      final dbUser = await ApiService.getUserById(userId);
+      if (dbUser != null) {
+        if (dbUser['userType'] != null) {
+          userType = dbUser['userType'] is int ? dbUser['userType'] : (int.tryParse(dbUser['userType'].toString()) ?? 0);
+        }
+        if (dbUser['name'] != null) resellerName = dbUser['name'].toString();
+        if (dbUser['email'] != null) resellerEmail = dbUser['email'].toString();
+        if (dbUser['role'] != null) userRole = dbUser['role'].toString();
+        if (dbUser['mobileNumber'] != null) resellerMobile = dbUser['mobileNumber'].toString();
+      }
+    }
 
-    if (!mounted) return;
+    if (userType == 1) {
+      await SessionService.saveSession(
+        isLoggedIn: true,
+        userId: userId,
+        userType: 1,
+        userName: resellerName,
+        userEmail: resellerEmail,
+        userRole: 'Reseller',
+        mobileNumber: resellerMobile,
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Welcome Reseller $resellerName!'),
-        backgroundColor: const Color(0xFF0B6E4F),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+      if (!mounted) return;
 
-    Navigator.of(context).pushNamedAndRemoveUntil('/admin-dashboard', (route) => false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Welcome Reseller $resellerName!'),
+          backgroundColor: const Color(0xFF0B6E4F),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => ResellerDashboardScreen(
+            resellerName: resellerName,
+            resellerEmail: resellerEmail,
+            resellerMobile: resellerMobile,
+          ),
+        ),
+      );
+    } else {
+        await SessionService.saveSession(
+          isLoggedIn: true,
+          userId: userId,
+          userType: 0,
+          userName: resellerName,
+          userEmail: resellerEmail,
+          userRole: userRole,
+        );
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Your account is a Normal User (user_type = 0). Opening Student Application...'),
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => DashboardScreen(
+              userName: resellerName,
+              userEmail: resellerEmail,
+              userRole: userRole,
+            ),
+          ),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['message'] ?? 'Invalid reseller login credentials.'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+>>>>>>> f6a156fca0b1d04e342d405482965d2125fe6c19
   }
 
   @override

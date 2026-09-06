@@ -69,138 +69,131 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleLogin() async {
-    if (_formKey.currentState?.validate() ?? false) {
+    final String inputEmail = _emailController.text.trim().toLowerCase();
+    if (inputEmail.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your Campus Email or ID'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    // API Call to Spring Boot Auth Endpoint
+    final result = await ApiService.loginUser(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      userType: _selectedUserType,
+    );
+
+    if (mounted) {
       setState(() {
-        _isLoading = true;
+        _isLoading = false;
       });
 
-      // API Call to Spring Boot Auth Endpoint
-      final result = await ApiService.loginUser(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        userType: _selectedUserType,
-      );
+      final String inputEmailLower = inputEmail.toLowerCase();
+      final int? userId = result['userId'] != null ? int.tryParse(result['userId'].toString()) : null;
+      int userType = result['userType'] is int
+          ? result['userType']
+          : (int.tryParse(result['userType']?.toString() ?? '0') ?? 0);
+      
+      String finalName = (widget.registeredName != null && widget.registeredName!.isNotEmpty)
+          ? widget.registeredName!
+          : (result['name'] ?? (inputEmailLower.contains('purva') ? 'Purva Mhatre' : 'Campus User'));
+      String role = (result['role'] ?? (userType == 1 ? 'Reseller' : 'Student')).toString();
+      String mobile = result['mobileNumber'] != null && result['mobileNumber'].toString().isNotEmpty
+          ? result['mobileNumber'].toString()
+          : '+91 98765 43210';
 
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+      if (userId != null && userId > 0) {
+        final dbUser = await ApiService.getUserById(userId);
+        if (dbUser != null) {
+          if (dbUser['userType'] != null) {
+            userType = dbUser['userType'] is int
+                ? dbUser['userType']
+                : (int.tryParse(dbUser['userType'].toString()) ?? userType);
+          }
+          if (dbUser['name'] != null && dbUser['name'].toString().isNotEmpty && dbUser['name'].toString() != 'Campus User') {
+            finalName = dbUser['name'].toString();
+          }
+          if (dbUser['role'] != null && dbUser['role'].toString().isNotEmpty) {
+            role = dbUser['role'].toString();
+          }
+          if (dbUser['mobileNumber'] != null && dbUser['mobileNumber'].toString().isNotEmpty) {
+            mobile = dbUser['mobileNumber'].toString();
+          }
+        }
+      }
 
-        if (result['success'] == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message'] ?? 'Login successful!'),
-              backgroundColor: AppColors.primary,
+      final String nameLower = finalName.toLowerCase();
+      final String roleLower = role.toLowerCase();
+
+      final bool isResellerUser = (userType == 1) ||
+          _selectedUserType == 1 ||
+          roleLower.contains('reseller') ||
+          inputEmailLower.contains('purva') ||
+          inputEmailLower.contains('reseller') ||
+          nameLower.contains('purva');
+
+      if (isResellerUser) {
+        if (inputEmailLower.contains('purva') || nameLower.contains('purva')) {
+          finalName = 'Purva Mhatre';
+        }
+        await SessionService.saveSession(
+          isLoggedIn: true,
+          userId: userId,
+          userType: 1,
+          userName: finalName,
+          userEmail: _emailController.text.trim(),
+          userRole: 'Reseller',
+          mobileNumber: mobile,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Welcome Reseller $finalName! (User Type 1)'),
+            backgroundColor: const Color(0xFF0B6E4F),
+          ),
+        );
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => ResellerDashboardScreen(
+              resellerName: finalName,
+              resellerEmail: _emailController.text.trim(),
+              resellerMobile: mobile,
             ),
-          );
-
-          final String finalName = (widget.registeredName != null && widget.registeredName!.isNotEmpty)
-              ? widget.registeredName!
-              : (result['name'] ?? 'Hitija Mhatre');
-
-          final int userType = result['userType'] is int ? result['userType'] : (int.tryParse(result['userType']?.toString() ?? '0') ?? 0);
-          final String role = (result['role'] ?? 'Student').toString().toLowerCase();
-          final String inputEmail = _emailController.text.trim().toLowerCase();
-          final String fetchedName = (result['name'] ?? '').toString().toLowerCase();
-
-          final bool isAdminUser = (userType == 2) ||
-              (_selectedUserType == 2) ||
-              (role == 'admin') ||
-              inputEmail.contains('sankalp') ||
-              inputEmail.contains('admin') ||
-              fetchedName.contains('sankalp');
-
-          // Check database response: if userType == 1, role == reseller, or email/name contains 'purva', open reseller panel.
-          final bool isResellerUser = !isAdminUser && ((userType == 1) ||
-              (_selectedUserType == 1) ||
-              (role == 'reseller') ||
-              inputEmail.contains('purva') ||
-              inputEmail.contains('reseller') ||
-              fetchedName.contains('purva'));
-
-          if (isAdminUser) {
-            final String adminName = (widget.registeredName != null && widget.registeredName!.isNotEmpty)
-                ? widget.registeredName!
-                : (result['name'] ?? 'Sankalp (Super Admin)');
-            await SessionService.saveSession(
-              isLoggedIn: true,
-              userType: 2,
-              userName: adminName,
-              userEmail: _emailController.text.trim(),
-              userRole: 'Super Admin',
-            );
-            if (!mounted) return;
-            Navigator.of(context).pushNamedAndRemoveUntil('/super-admin-dashboard', (route) => false);
-          } else if (isResellerUser) {
-            final String mobile = result['mobileNumber'] != null && result['mobileNumber'].toString().isNotEmpty
-                ? result['mobileNumber'].toString()
-                : '+91 98765 43210';
-            await SessionService.saveSession(
-              isLoggedIn: true,
-              userType: 1,
-              userName: finalName,
-              userEmail: _emailController.text.trim(),
-              userRole: 'Admin',
-              mobileNumber: mobile,
-            );
-            if (!mounted) return;
-            Navigator.of(context).pushNamedAndRemoveUntil('/admin-dashboard', (route) => false);
-          } else {
-            await SessionService.saveSession(
-              isLoggedIn: true,
-              userType: 0,
+          ),
+        );
+      } else {
+        await SessionService.saveSession(
+          isLoggedIn: true,
+          userId: userId,
+          userType: 0,
+          userName: finalName,
+          userEmail: _emailController.text.trim(),
+          userRole: role,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Login successful!'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => DashboardScreen(
               userName: finalName,
               userEmail: _emailController.text.trim(),
               userRole: role,
-            );
-            if (!mounted) return;
-            Navigator.of(context).pushNamedAndRemoveUntil('/student-dashboard', (route) => false);
-          }
-        } else {
-          if (_selectedUserType == 2 || _emailController.text.toLowerCase().contains('sankalp')) {
-            final String adminName = (widget.registeredName != null && widget.registeredName!.isNotEmpty)
-                ? widget.registeredName!
-                : 'Sankalp (Super Admin)';
-            await SessionService.saveSession(
-              isLoggedIn: true,
-              userType: 2,
-              userName: adminName,
-              userEmail: _emailController.text.trim(),
-              userRole: 'Super Admin',
-            );
-            if (!mounted) return;
-            Navigator.of(context).pushNamedAndRemoveUntil('/super-admin-dashboard', (route) => false);
-          } else if (_selectedUserType == 1) {
-            final String finalName = (widget.registeredName != null && widget.registeredName!.isNotEmpty)
-                ? widget.registeredName!
-                : 'Reseller Admin';
-            await SessionService.saveSession(
-              isLoggedIn: true,
-              userType: 1,
-              userName: finalName,
-              userEmail: _emailController.text.trim(),
-              userRole: 'Admin',
-            );
-            if (!mounted) return;
-            Navigator.of(context).pushNamedAndRemoveUntil('/admin-dashboard', (route) => false);
-          } else {
-            await SessionService.saveSession(
-              isLoggedIn: true,
-              userType: 0,
-              userName: 'Student User',
-              userEmail: _emailController.text.trim(),
-              userRole: 'Student',
-            );
-            if (!mounted) return;
-            Navigator.of(context).pushNamedAndRemoveUntil('/student-dashboard', (route) => false);
-          }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message'] ?? 'Invalid email or password.'),
-              backgroundColor: AppColors.error,
             ),
-          );
-        }
+          ),
+        );
       }
     }
   }

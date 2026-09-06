@@ -17,6 +17,9 @@ public class ProductController {
     @Autowired
     private ProductRepository productRepository;
 
+    @Autowired
+    private app.HackBackend.repository.UserRepository userRepository;
+
     @PostMapping("/create")
     public ResponseEntity<ProductResponse> createProduct(@RequestBody CreateProductRequest request) {
         if (request.getTitle() == null || request.getTitle().trim().isEmpty()) {
@@ -26,6 +29,23 @@ public class ProductController {
                             .message("Product title is required.")
                             .build()
             );
+        }
+
+        // Database validation: check seller email in database to ensure user_type = 1
+        if (request.getSellerEmail() != null && !request.getSellerEmail().trim().isEmpty()) {
+            String email = request.getSellerEmail().trim().toLowerCase();
+            var sellerUserOpt = userRepository.findByEmail(email);
+            if (sellerUserOpt.isPresent()) {
+                var sellerUser = sellerUserOpt.get();
+                if (sellerUser.getUserType() != null && sellerUser.getUserType() == 0) {
+                    return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(
+                            ProductResponse.builder()
+                                    .success(false)
+                                    .message("Access denied. Only reseller accounts (user_type = 1) can post product listings.")
+                                    .build()
+                    );
+                }
+            }
         }
 
         Product product = Product.builder()

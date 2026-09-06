@@ -8,8 +8,8 @@ import '../services/session_service.dart';
 import '../services/api_service.dart';
 import '../services/inquiry_service.dart';
 import 'dashboard_screen.dart';
-import 'login_screen.dart';
 import 'chat_screen.dart';
+import '../widgets/logout_dialog.dart';
 
 class ResellerDashboardScreen extends StatefulWidget {
   final String resellerName;
@@ -31,220 +31,36 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
   final ImagePicker _picker = ImagePicker();
   Function(String)? _activeModalPhotoSetter;
   int _currentBottomNavIndex = 0; // 0: Home, 1: Active Listings, 2: Customer Purchases
+  int _unreadChatCount = 0;
 
-  List<Map<String, String>> get _customerInquiries => InquiryService.inquiries;
-
-  void _showCustomerMessagesModal(BuildContext context) {
-    showModalBottomSheet(
+  void _showCustomerMessagesModal(BuildContext context) async {
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final inquiriesList = _customerInquiries;
-
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.75,
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFECFDF5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.forum_rounded, color: Color(0xFF059669), size: 20),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Customer Inquiries & Chats',
-                              style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              'Messages from buyers in Marketplace tab',
-                              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 24),
-                  Expanded(
-                    child: inquiriesList.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24.0),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(14),
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFFECFDF5),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.chat_bubble_outline_rounded,
-                                      size: 38,
-                                      color: Color(0xFF059669),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'No customer messages yet',
-                                    style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'When buyers message you from the Marketplace tab about your listed books, their messages will appear here.',
-                                    style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B)),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        : ListView.separated(
-                            itemCount: inquiriesList.length,
-                            separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                            itemBuilder: (context, index) {
-                              final chat = inquiriesList[index];
-                              final isUnread = chat['unread'] == 'true';
-
-                              return ListTile(
-                                contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                                leading: Stack(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 24,
-                                      backgroundColor: const Color(0xFF059669),
-                                      child: Text(
-                                        chat['avatar'] ?? 'C',
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                      ),
-                                    ),
-                                    if (isUnread)
-                                      Positioned(
-                                        right: 0,
-                                        top: 0,
-                                        child: Container(
-                                          width: 12,
-                                          height: 12,
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFEF4444),
-                                            shape: BoxShape.circle,
-                                            border: Border.all(color: Colors.white, width: 2),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                title: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        chat['customerName'] ?? 'Customer',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 14,
-                                          fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
-                                          color: const Color(0xFF0F172A),
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    Text(
-                                      chat['time'] ?? '',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 10.5,
-                                        color: isUnread ? const Color(0xFF059669) : const Color(0xFF94A3B8),
-                                        fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF1F5F9),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        'Interested in: ${chat['productTitle']}',
-                                        style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      chat['lastMessage'] ?? '',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        color: isUnread ? const Color(0xFF1E293B) : const Color(0xFF64748B),
-                                        fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                                onTap: () {
-                                  InquiryService.markAsRead(index);
-                                  setModalState(() {});
-                                  Navigator.pop(context);
-
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) => ChatScreen(
-                                        sellerName: chat['customerName'] ?? 'Customer',
-                                        productTitle: chat['productTitle'] ?? 'Product',
-                                        productPrice: chat['price'] ?? '₹350',
-                                        productImage: chat['image'],
-                                        sellerAvatar: chat['avatar'] ?? 'C',
-                                        phoneNumber: chat['phone'] ?? '+91 98765 43210',
-                                        initialCustomerMessage: chat['lastMessage'],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+      builder: (context) => _CustomerMessagesModalContent(
+        resellerName: widget.resellerName,
+        resellerEmail: widget.resellerEmail,
+      ),
     );
+    _fetchUnreadCount();
+  }
+
+  Future<void> _fetchUnreadCount() async {
+    final conversations = await ApiService.getUserConversations(widget.resellerEmail);
+    if (mounted) {
+      int totalUnread = 0;
+      for (final conv in conversations) {
+        final count = int.tryParse((conv['unreadCount'] ?? 0).toString()) ?? 0;
+        totalUnread += count;
+      }
+      setState(() {
+        _unreadChatCount = totalUnread;
+      });
+    }
   }
 
   final List<Map<String, String>> _customerOrders = [
@@ -252,7 +68,7 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
       'orderId': 'order_rzp_984102',
       'title': '📚 Data Structures & Algorithms (Cormen)',
       'price': '₹350',
-      'buyerName': 'Hitija Mhatre',
+      'buyerName': 'Jay',
       'buyerEmail': 'student@campus.edu',
       'buyerMobile': '+91 98765 43210',
       'status': 'Booking Confirmed • Library Handover',
@@ -289,8 +105,37 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    InquiryService.updateNotifier.addListener(_onInquiriesChanged);
+    _verifyResellerAccess();
     _fetchResellerProducts();
     _fetchCustomerOrders();
+    _fetchUnreadCount();
+  }
+
+  void _onInquiriesChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    InquiryService.updateNotifier.removeListener(_onInquiriesChanged);
+    super.dispose();
+  }
+
+  Future<void> _verifyResellerAccess() async {
+    final session = await SessionService.getSession();
+    final int? userId = session['userId'] != null ? int.tryParse(session['userId'].toString()) : null;
+
+    await SessionService.saveSession(
+      isLoggedIn: true,
+      userId: userId,
+      userType: 1,
+      userName: widget.resellerName,
+      userEmail: widget.resellerEmail,
+      userRole: 'Reseller',
+    );
   }
 
   Future<void> _fetchResellerProducts() async {
@@ -959,7 +804,7 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
     required Color bgColor,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -974,6 +819,7 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             width: 32,
@@ -985,14 +831,18 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
             alignment: Alignment.center,
             child: Icon(icon, color: iconColor, size: 16),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             value,
-            style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A), letterSpacing: -0.5),
+            style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A), letterSpacing: -0.5),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           Text(
             label,
-            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xFF94A3B8)),
+            style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w500, color: const Color(0xFF94A3B8)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -1054,7 +904,9 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Row(
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
                   children: [
                     if (tag.isNotEmpty) ...[
                       Container(
@@ -1068,7 +920,6 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
                           style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500, color: const Color(0xFF2563EB)),
                         ),
                       ),
-                      const SizedBox(width: 6),
                     ],
                     if (condition.isNotEmpty) ...[
                       Container(
@@ -1149,16 +1000,19 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
                       children: [
                         Text(price, style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.bold, color: const Color(0xFF059669))),
                         const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(4)),
-                          child: Text(paymentMode, style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w600, color: const Color(0xFF047857))),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(4)),
+                            child: Text(paymentMode, style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w600, color: const Color(0xFF047857)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 4),
               Text(date, style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF94A3B8))),
             ],
           ),
@@ -1181,23 +1035,34 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFBFDBFE)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF2563EB)),
-                    const SizedBox(width: 4),
-                    Text(status, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF1D4ED8))),
-                  ],
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF2563EB)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          status,
+                          style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF1D4ED8)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(width: 6),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.phone_rounded, size: 12, color: Color(0xFF64748B)),
                   const SizedBox(width: 4),
@@ -1211,7 +1076,7 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
     );
   }
 
-  // --- TAB 0: HOME VIEW (WITH PRODUCT UPLOAD CTA SECTION) ---
+  // --- TAB 0: HOME VIEW ---
   Widget _buildHomeView() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
@@ -1224,157 +1089,6 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
 
           // STATISTICS GRID
           _buildStatsGrid(),
-          const SizedBox(height: 16),
-
-          // CUSTOMER BUYER CHATS QUICK ACCESS CARD
-          InkWell(
-            onTap: () => _showCustomerMessagesModal(context),
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF4),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFA7F3D0)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF059669),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 18),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              'Customer Buyer Inquiries',
-                              style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEF4444),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '${_customerInquiries.where((c) => c['unread'] == 'true').length} New',
-                                style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          _customerInquiries.isEmpty
-                              ? 'No active customer messages yet. Tap to view chats.'
-                              : '${_customerInquiries.first['customerName']}: "${_customerInquiries.first['lastMessage']}"',
-                          style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF475569)),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF059669)),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // UPLOAD PRODUCT SECTION (PROMINENTLY GIVEN IN HOME TAB)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF059669), Color(0xFF0D9488)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF059669).withAlpha(50),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(50),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.add_a_photo_rounded, color: Colors.white, size: 24),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Upload Product Listing',
-                            style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                          Text(
-                            'List books, calculators, lab coats & gear directly from Home.',
-                            style: GoogleFonts.inter(fontSize: 11.5, color: Colors.white70),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _pickPhotoAndOpenUploadModal,
-                        icon: const Icon(Icons.photo_library_rounded, size: 16),
-                        label: Text('Open Gallery & Upload', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF059669),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _showAddProductModal(null),
-                        icon: const Icon(Icons.add_circle_outline_rounded, size: 16, color: Colors.white),
-                        label: Text('Add Details Manually', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.white54),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
           const SizedBox(height: 24),
 
           // ACTIVE LISTINGS OVERVIEW PREVIEW
@@ -1552,32 +1266,40 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        toolbarHeight: 64,
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        automaticallyImplyLeading: false,
+        leading: _currentBottomNavIndex != 0
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
+                onPressed: () {
+                  setState(() {
+                    _currentBottomNavIndex = 0; // Return to Home tab
+                  });
+                },
+              )
+            : null,
         shape: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
         title: Row(
           children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
-                borderRadius: BorderRadius.circular(12),
+            if (_currentBottomNavIndex == 0) ...[
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.storefront_rounded,
+                  color: Color(0xFF059669),
+                  size: 20,
+                ),
               ),
-              alignment: Alignment.center,
-              child: Icon(
-                _currentBottomNavIndex == 1
-                    ? Icons.inventory_2_rounded
-                    : _currentBottomNavIndex == 2
-                        ? Icons.shopping_bag_rounded
-                        : Icons.storefront_rounded,
-                color: const Color(0xFF059669),
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
+              const SizedBox(width: 12),
+            ],
             Text(
               appBarTitle,
               style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
@@ -1603,25 +1325,26 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
                 ),
                 onPressed: () => _showCustomerMessagesModal(context),
               ),
-              if (_customerInquiries.any((c) => c['unread'] == 'true'))
+              if (_unreadChatCount > 0)
                 Positioned(
                   right: 4,
                   top: 4,
                   child: Container(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(3),
                     decoration: const BoxDecoration(
                       color: Color(0xFFEF4444),
                       shape: BoxShape.circle,
                     ),
                     constraints: const BoxConstraints(
-                      minWidth: 15,
-                      minHeight: 15,
+                      minWidth: 16,
+                      minHeight: 16,
                     ),
+                    alignment: Alignment.center,
                     child: Text(
-                      '${_customerInquiries.where((c) => c['unread'] == 'true').length}',
-                      style: const TextStyle(
+                      '$_unreadChatCount',
+                      style: GoogleFonts.inter(
                         color: Colors.white,
-                        fontSize: 8.5,
+                        fontSize: 9,
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
@@ -1631,16 +1354,17 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
             ],
           ),
           IconButton(
-            tooltip: 'Switch View',
+            tooltip: 'Swap to Normal Application (Type 0)',
             icon: Container(
               width: 36,
               height: 36,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF8FAFC),
+              decoration: BoxDecoration(
+                color: const Color(0xFFECFDF5),
                 shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFA7F3D0), width: 1.5),
               ),
               alignment: Alignment.center,
-              child: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF475569), size: 18),
+              child: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF059669), size: 20),
             ),
             onPressed: () async {
               await SessionService.saveSession(
@@ -1651,6 +1375,14 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
                 userRole: 'Student',
               );
               if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('🔄 Switched to Normal Application - Welcome ${widget.resellerName}!'),
+                    backgroundColor: const Color(0xFF059669),
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
                 Navigator.of(context).pushReplacement(
                   MaterialPageRoute(
                     builder: (context) => DashboardScreen(
@@ -1674,15 +1406,7 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
               alignment: Alignment.center,
               child: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 18),
             ),
-            onPressed: () async {
-              await SessionService.clearSession();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
-            },
+            onPressed: () => showLogoutConfirmationDialog(context),
           ),
           const SizedBox(width: 8),
         ],
@@ -1738,6 +1462,251 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
           'Upload Photo',
           style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold),
         ),
+      ),
+    );
+  }
+}
+
+class _CustomerMessagesModalContent extends StatefulWidget {
+  final String resellerName;
+  final String resellerEmail;
+  const _CustomerMessagesModalContent({
+    required this.resellerName,
+    this.resellerEmail = 'sneha.cse@campus.edu',
+  });
+
+  @override
+  State<_CustomerMessagesModalContent> createState() => _CustomerMessagesModalContentState();
+}
+
+class _CustomerMessagesModalContentState extends State<_CustomerMessagesModalContent> {
+  List<Map<String, dynamic>> _conversations = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRealConversations();
+  }
+
+  Future<void> _fetchRealConversations() async {
+    final fetched = await ApiService.getUserConversations(widget.resellerEmail);
+    if (mounted) {
+      setState(() {
+        _conversations = fetched;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.75,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFECFDF5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.forum_rounded, color: Color(0xFF059669), size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Customer Inquiries & Chats',
+                      style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Messages from buyers in Marketplace tab',
+                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF059669)))
+                : _conversations.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFECFDF5),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.chat_bubble_outline_rounded,
+                                  size: 38,
+                                  color: Color(0xFF059669),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No conversations yet',
+                                style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'When buyers start a conversation with you about your listed items, their messages will appear here.',
+                                style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B)),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
+                        itemCount: _conversations.length,
+                        separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        itemBuilder: (context, index) {
+                          final chat = _conversations[index];
+                          final int convId = int.tryParse(chat['conversationId'].toString()) ?? 0;
+                          final int unreadCount = int.tryParse((chat['unreadCount'] ?? 0).toString()) ?? 0;
+                          final bool isUnread = unreadCount > 0;
+                          final String peerName = (chat['peerName'] ?? 'Customer').toString();
+                          final String peerEmail = (chat['peerEmail'] ?? '').toString();
+                          final String peerAvatar = (chat['peerAvatar'] ?? (peerName.isNotEmpty ? peerName[0].toUpperCase() : 'C')).toString();
+                          final String productTitle = (chat['productTitle'] ?? 'Marketplace Product').toString();
+                          final String lastMessage = (chat['lastMessage'] ?? '').toString();
+                          final String lastMessageTime = (chat['lastMessageTime'] ?? '').toString();
+
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                            leading: Stack(
+                              children: [
+                                CircleAvatar(
+                                  radius: 24,
+                                  backgroundColor: const Color(0xFF059669),
+                                  child: Text(
+                                    peerAvatar,
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                  ),
+                                ),
+                                if (isUnread)
+                                  Positioned(
+                                    right: 0,
+                                    top: 0,
+                                    child: Container(
+                                      width: 12,
+                                      height: 12,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEF4444),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.white, width: 2),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            title: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    peerName,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
+                                      color: const Color(0xFF0F172A),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Text(
+                                  lastMessageTime,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10.5,
+                                    color: isUnread ? const Color(0xFF059669) : const Color(0xFF94A3B8),
+                                    fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'Interested in: $productTitle',
+                                    style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  lastMessage,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: isUnread ? const Color(0xFF1E293B) : const Color(0xFF64748B),
+                                    fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                            onTap: () async {
+                              Navigator.pop(context);
+
+                              if (convId > 0) {
+                                ApiService.markConversationRead(convId, widget.resellerEmail);
+                              }
+
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => ChatScreen(
+                                    conversationId: convId,
+                                    sellerName: peerName,
+                                    productTitle: productTitle,
+                                    productPrice: '₹350',
+                                    sellerAvatar: peerAvatar,
+                                    currentUserName: widget.resellerName,
+                                    currentUserEmail: widget.resellerEmail,
+                                    peerEmail: peerEmail,
+                                    isReseller: true,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+          ),
+        ],
       ),
     );
   }

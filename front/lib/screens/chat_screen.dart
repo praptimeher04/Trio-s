@@ -1,12 +1,15 @@
+import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
-import '../services/inquiry_service.dart';
+import '../services/api_service.dart';
 
 class ChatScreen extends StatefulWidget {
+  final int? conversationId;
   final String sellerName;
   final String productTitle;
   final String productPrice;
@@ -14,9 +17,14 @@ class ChatScreen extends StatefulWidget {
   final String sellerAvatar;
   final String phoneNumber;
   final String? initialCustomerMessage;
+  final String currentUserName;
+  final String currentUserEmail;
+  final String? peerEmail;
+  final bool isReseller;
 
   const ChatScreen({
     super.key,
+    this.conversationId,
     required this.sellerName,
     required this.productTitle,
     required this.productPrice,
@@ -24,6 +32,10 @@ class ChatScreen extends StatefulWidget {
     this.sellerAvatar = 'S',
     this.phoneNumber = '+91 98765 43210',
     this.initialCustomerMessage,
+    this.currentUserName = 'Campus Student',
+    this.currentUserEmail = 'student@campus.edu',
+    this.peerEmail,
+    this.isReseller = false,
   });
 
   @override
@@ -35,114 +47,151 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
 
-  late List<Map<String, dynamic>> _messages;
+  int? _activeConversationId;
+  List<Map<String, dynamic>> _messages = [];
+  bool _isLoading = true;
+  bool _canSend = false;
 
-  final List<String> _sampleGalleryImages = [
-    'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1584697964400-2ae6b27a3523?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=400&q=80',
-  ];
+  String get _resolvedPeerEmail {
+    if (widget.peerEmail != null && widget.peerEmail!.isNotEmpty) {
+      return widget.peerEmail!;
+    }
+    return widget.isReseller ? 'student@campus.edu' : 'reseller@campus.edu';
+  }
 
   @override
   void initState() {
     super.initState();
-    _messages = [];
-    if (widget.initialCustomerMessage != null && widget.initialCustomerMessage!.trim().isNotEmpty) {
-      _messages.add({
-        'sender': 'seller',
-        'type': 'text',
-        'text': widget.initialCustomerMessage!,
-        'time': _formatCurrentTime(offsetMinutes: -1),
+    _activeConversationId = widget.conversationId;
+    _messageController.addListener(_onTextChanged);
+    _initializeChat();
+  }
+
+  void _onTextChanged() {
+    final canSendNow = _messageController.text.trim().isNotEmpty;
+    if (canSendNow != _canSend) {
+      setState(() {
+        _canSend = canSendNow;
       });
     }
   }
 
-  String _formatCurrentTime({int offsetMinutes = 0}) {
-    final now = DateTime.now().add(Duration(minutes: offsetMinutes));
-    final hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
-    final minute = now.minute.toString().padLeft(2, '0');
-    final period = now.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $period';
+  Future<void> _initializeChat() async {
+    if (_activeConversationId == null) {
+      final String customerEmail = widget.isReseller ? _resolvedPeerEmail : widget.currentUserEmail;
+      final String customerName = widget.isReseller ? widget.sellerName : widget.currentUserName;
+      final String resellerEmail = widget.isReseller ? widget.currentUserEmail : _resolvedPeerEmail;
+      final String resellerName = widget.isReseller ? widget.currentUserName : widget.sellerName;
+
+      final convData = await ApiService.getOrCreateConversation(
+        customerEmail: customerEmail,
+        customerName: customerName,
+        resellerEmail: resellerEmail,
+        resellerName: resellerName,
+        productTitle: widget.productTitle,
+      );
+
+      if (convData != null && convData['conversationId'] != null) {
+        _activeConversationId = int.tryParse(convData['conversationId'].toString());
+      }
+    }
+
+    await _fetchMessages();
+
+    // Mark conversation as read once on initial screen load
+    if (_activeConversationId != null) {
+      ApiService.markConversationRead(_activeConversationId!, widget.currentUserEmail);
+    }
+
+    // If conversation is empty and Customer opened screen, send initial greeting message in 1 single API call
+    if (_messages.isEmpty && !widget.isReseller && _activeConversationId != null) {
+      final String initText = (widget.initialCustomerMessage != null && widget.initialCustomerMessage!.trim().isNotEmpty)
+          ? widget.initialCustomerMessage!.trim()
+          : 'Hi! I am interested in buying ${widget.productTitle}. Is it available for campus handover?';
+
+      final initList = await ApiService.sendChatMessage(
+        conversationId: _activeConversationId!,
+        senderEmail: widget.currentUserEmail,
+        senderName: widget.currentUserName,
+        receiverEmail: _resolvedPeerEmail,
+        text: initText,
+      );
+
+      if (initList.isNotEmpty && mounted) {
+        setState(() {
+          _messages = initList;
+        });
+        _scrollToBottom();
+      }
+    }
   }
 
-  void _sendMessage([String? customText]) {
+  Future<void> _fetchMessages() async {
+    if (_activeConversationId == null) return;
+
+    final fetched = await ApiService.getConversationMessages(_activeConversationId!);
+    if (mounted) {
+      final bool lengthChanged = fetched.length != _messages.length;
+      setState(() {
+        _messages = fetched;
+        _isLoading = false;
+      });
+
+      if (lengthChanged) {
+        _scrollToBottom();
+      }
+    }
+  }
+
+  Future<void> _sendMessage([String? customText]) async {
     final text = customText ?? _messageController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _activeConversationId == null) return;
 
     if (customText == null) {
       _messageController.clear();
+      setState(() {
+        _canSend = false;
+      });
     }
 
-    setState(() {
-      _messages.add({
-        'sender': 'user',
-        'type': 'text',
-        'text': text,
-        'time': _formatCurrentTime(),
-      });
-    });
-
-    _scrollToBottom();
-
-    // Record real customer message so it appears in Reseller Panel
-    InquiryService.recordInquiry(
-      customerName: 'Hitija Mhatre',
-      productTitle: widget.productTitle,
-      price: widget.productPrice,
-      lastMessage: text,
-      avatar: 'H',
-      image: widget.productImage,
+    // 1 SINGLE API CALL: sendChatMessage sends the message and receives all updated messages of the conversation
+    final updatedList = await ApiService.sendChatMessage(
+      conversationId: _activeConversationId!,
+      senderEmail: widget.currentUserEmail,
+      senderName: widget.currentUserName,
+      receiverEmail: _resolvedPeerEmail,
+      text: text,
+      messageType: 'text',
     );
 
-    // Auto reply simulation for peer messaging
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      if (!mounted) return;
-      String replyText = 'Thanks for reaching out! Yes, "${widget.productTitle}" is available for pickup!';
-      if (text.toLowerCase().contains('price') || text.toLowerCase().contains('discount')) {
-        replyText = 'The price ${widget.productPrice} is already campus discounted, but we can talk on handover!';
-      } else if (text.toLowerCase().contains('where') || text.toLowerCase().contains('location') || text.toLowerCase().contains('meet')) {
-        replyText = 'We can meet near Central Library or Campus Canteen today!';
-      }
-
+    if (updatedList.isNotEmpty && mounted) {
       setState(() {
-        _messages.add({
-          'sender': 'seller',
-          'type': 'text',
-          'text': replyText,
-          'time': _formatCurrentTime(),
-        });
+        _messages = updatedList;
       });
       _scrollToBottom();
-    });
+    }
   }
 
-  void _sendImageMessage(String pathOrUrl, {bool isUrl = false, String caption = 'Attached photo from Gallery'}) {
-    setState(() {
-      _messages.add({
-        'sender': 'user',
-        'type': 'image',
-        'imagePath': pathOrUrl,
-        'isUrl': isUrl,
-        'text': caption,
-        'time': _formatCurrentTime(),
-      });
-    });
+  Future<void> _sendImageMessage(String pathOrUrl, {bool isUrl = false, String caption = 'Attached photo'}) async {
+    if (_activeConversationId == null) return;
 
-    _scrollToBottom();
+    // 1 SINGLE API CALL: sendChatMessage sends the image message and receives all updated messages
+    final updatedList = await ApiService.sendChatMessage(
+      conversationId: _activeConversationId!,
+      senderEmail: widget.currentUserEmail,
+      senderName: widget.currentUserName,
+      receiverEmail: _resolvedPeerEmail,
+      text: caption,
+      imagePath: pathOrUrl,
+      messageType: 'image',
+    );
 
-    Future.delayed(const Duration(milliseconds: 1400), () {
-      if (!mounted) return;
+    if (updatedList.isNotEmpty && mounted) {
       setState(() {
-        _messages.add({
-          'sender': 'seller',
-          'type': 'text',
-          'text': 'Thanks for sharing the photo! The item condition looks great. Let\'s meet up at the canteen to inspect!',
-          'time': _formatCurrentTime(),
-        });
+        _messages = updatedList;
       });
       _scrollToBottom();
-    });
+    }
   }
 
   Future<void> _pickImageFromGallery() async {
@@ -152,13 +201,9 @@ class _ChatScreenState extends State<ChatScreen> {
         imageQuality: 85,
       );
       if (pickedFile != null) {
-        _sendImageMessage(pickedFile.path, isUrl: false, caption: 'Selected from Phone Gallery');
-      } else {
-        _showSampleGalleryPickerModal();
+        _sendImageMessage(pickedFile.path, isUrl: false, caption: 'Photo from Gallery');
       }
-    } catch (e) {
-      _showSampleGalleryPickerModal();
-    }
+    } catch (_) {}
   }
 
   Future<void> _pickImageFromCamera() async {
@@ -170,9 +215,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (pickedFile != null) {
         _sendImageMessage(pickedFile.path, isUrl: false, caption: 'Photo taken with Camera');
       }
-    } catch (e) {
-      _showSampleGalleryPickerModal();
-    }
+    } catch (_) {}
   }
 
   void _showAttachmentPickerModal() {
@@ -212,10 +255,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       color: Color(0xFFECFDF5),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.photo_library_rounded, color: Color(0xFF0B6E4F)),
+                    child: const Icon(Icons.photo_library_rounded, color: Color(0xFF059669)),
                   ),
                   title: Text('Open Device Gallery', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
-                  subtitle: Text('Pick photo from your photos gallery app', style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary)),
+                  subtitle: Text('Pick photo from your device gallery', style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary)),
                   onTap: () {
                     Navigator.pop(context);
                     _pickImageFromGallery();
@@ -231,244 +274,14 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF2563EB)),
                   ),
                   title: Text('Take Camera Photo', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
-                  subtitle: Text('Capture instant item image or proof', style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary)),
+                  subtitle: Text('Capture instant photo or item proof', style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary)),
                   onTap: () {
                     Navigator.pop(context);
                     _pickImageFromCamera();
                   },
                 ),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF3E8FF),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.collections_rounded, color: Color(0xFF9333EA)),
-                  ),
-                  title: Text('Campus Sample Photos Gallery', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
-                  subtitle: Text('Select from product & proof images', style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showSampleGalleryPickerModal();
-                  },
-                ),
               ],
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showSampleGalleryPickerModal() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Select from Gallery',
-                      style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                  ),
-                  itemCount: _sampleGalleryImages.length,
-                  itemBuilder: (context, index) {
-                    final imgUrl = _sampleGalleryImages[index];
-                    return InkWell(
-                      onTap: () {
-                        Navigator.pop(context);
-                        _sendImageMessage(imgUrl, isUrl: true, caption: 'Attached photo from Gallery');
-                      },
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          imgUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            color: const Color(0xFFECFDF5),
-                            child: const Icon(Icons.image, color: Color(0xFF0B6E4F)),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _makePhoneCall() async {
-    final cleanPhone = widget.phoneNumber.replaceAll(RegExp(r'[^0-9+]'), '');
-    final Uri phoneUri = Uri.parse('tel:$cleanPhone');
-
-    try {
-      if (await canLaunchUrl(phoneUri)) {
-        await launchUrl(phoneUri);
-      }
-    } catch (_) {}
-
-    if (mounted) {
-      _showCallerModal(cleanPhone);
-    }
-  }
-
-  void _showCallerModal(String phoneNumber) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // CALLING ANIMATION AVATAR
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD1FAE5),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF0B6E4F), width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF10B981).withAlpha(60),
-                      blurRadius: 20,
-                      spreadRadius: 6,
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    widget.sellerAvatar,
-                    style: GoogleFonts.poppins(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF0B6E4F),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Calling ${widget.sellerName}...',
-                style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                phoneNumber,
-                style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF0B6E4F), fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF10B981),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Direct Campus Peer Line • Connecting',
-                    style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 28),
-
-              // CALL ACTIONS (MUTE, LAUNCH PHONE DIALER, END CALL)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Column(
-                    children: [
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(Icons.mic_off_rounded, color: Color(0xFF6B7280)),
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFFF3F4F6),
-                          padding: const EdgeInsets.all(14),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text('Mute', style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary)),
-                    ],
-                  ),
-                  Column(
-                    children: [
-                      IconButton(
-                        onPressed: () async {
-                          final Uri phoneUri = Uri.parse('tel:$phoneNumber');
-                          if (await canLaunchUrl(phoneUri)) {
-                            await launchUrl(phoneUri);
-                          }
-                        },
-                        icon: const Icon(Icons.phone, color: Colors.white),
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFF059669),
-                          padding: const EdgeInsets.all(16),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text('Dial App', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF059669))),
-                    ],
-                  ),
-                  Column(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.call_end_rounded, color: Colors.white),
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFFEF4444),
-                          padding: const EdgeInsets.all(16),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text('End Call', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFFEF4444))),
-                    ],
-                  ),
-                ],
-              ),
-            ],
           ),
         );
       },
@@ -480,7 +293,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
         );
       }
@@ -503,24 +316,24 @@ class _ChatScreenState extends State<ChatScreen> {
               child: const Icon(
                 Icons.chat_bubble_outline_rounded,
                 size: 40,
-                color: Color(0xFF0B6E4F),
+                color: Color(0xFF059669),
               ),
             ),
             const SizedBox(height: 14),
             Text(
-              'No messages here yet',
+              'No messages yet',
               style: GoogleFonts.poppins(
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF111827),
+                color: const Color(0xFF0F172A),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
-              'Start a live conversation with ${widget.sellerName} about "${widget.productTitle}"',
+              'Type a message below to start chatting with ${widget.sellerName}',
               style: GoogleFonts.poppins(
                 fontSize: 12,
-                color: const Color(0xFF6B7280),
+                color: const Color(0xFF64748B),
               ),
               textAlign: TextAlign.center,
             ),
@@ -540,7 +353,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 1,
@@ -554,11 +367,11 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundColor: const Color(0xFFD1FAE5),
+              backgroundColor: const Color(0xFFECFDF5),
               child: Text(
                 widget.sellerAvatar,
                 style: GoogleFonts.poppins(
-                  color: const Color(0xFF0B6E4F),
+                  color: const Color(0xFF059669),
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
@@ -585,17 +398,17 @@ class _ChatScreenState extends State<ChatScreen> {
                         width: 7,
                         height: 7,
                         decoration: const BoxDecoration(
-                          color: Color(0xFF10B981),
+                          color: Color(0xFF059669),
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Active Now • Reseller',
+                        widget.isReseller ? 'Customer • Online' : 'Reseller • Online',
                         style: GoogleFonts.poppins(
                           fontSize: 10.5,
-                          color: const Color(0xFF047857),
-                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF059669),
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -607,18 +420,28 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.phone_outlined, color: Color(0xFF0B6E4F)),
-            tooltip: 'Call Reseller',
-            onPressed: _makePhoneCall,
+            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF059669)),
+            tooltip: 'Refresh Messages',
+            onPressed: () => _fetchMessages(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.phone_outlined, color: Color(0xFF059669)),
+            tooltip: 'Call Phone',
+            onPressed: () async {
+              final Uri phoneUri = Uri.parse('tel:${widget.phoneNumber.replaceAll(RegExp(r'[^0-9+]'), '')}');
+              try {
+                if (await canLaunchUrl(phoneUri)) await launchUrl(phoneUri);
+              } catch (_) {}
+            },
           ),
           const SizedBox(width: 4),
         ],
       ),
       body: Column(
         children: [
-          // PRODUCT SUMMARY BAR
+          // PRODUCT SUMMARY TOP BAR
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
@@ -628,25 +451,25 @@ class _ChatScreenState extends State<ChatScreen> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    width: 40,
-                    height: 40,
+                    width: 36,
+                    height: 36,
                     color: const Color(0xFFECFDF5),
                     child: widget.productImage != null && widget.productImage!.isNotEmpty
                         ? Image.network(
                             widget.productImage!,
-                            width: 40,
-                            height: 40,
+                            width: 36,
+                            height: 36,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) => const Icon(
                               Icons.shopping_bag_outlined,
-                              color: Color(0xFF0B6E4F),
-                              size: 20,
+                              color: Color(0xFF059669),
+                              size: 18,
                             ),
                           )
                         : const Icon(
                             Icons.shopping_bag_outlined,
-                            color: Color(0xFF0B6E4F),
-                            size: 20,
+                            color: Color(0xFF059669),
+                            size: 18,
                           ),
                   ),
                 ),
@@ -668,26 +491,26 @@ class _ChatScreenState extends State<ChatScreen> {
                       Text(
                         widget.productPrice,
                         style: GoogleFonts.poppins(
-                          fontSize: 11.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0B6E4F),
+                          color: const Color(0xFF059669),
                         ),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: const Color(0xFFECFDF5),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    'Campus Verified',
+                    'Marketplace Item',
                     style: GoogleFonts.poppins(
-                      fontSize: 10,
+                      fontSize: 9.5,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF047857),
+                      color: const Color(0xFF059669),
                     ),
                   ),
                 ),
@@ -695,126 +518,142 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
 
-          // CHAT MESSAGES LIST
+          // MESSAGES CHAT STREAM LIST
           Expanded(
-            child: _messages.isEmpty
-                ? _buildEmptyChatPlaceholder()
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                final msg = _messages[index];
-                final isUser = msg['sender'] == 'user';
-                final isImage = msg['type'] == 'image';
-                final String? imagePath = msg['imagePath'] as String?;
-                final bool isUrl = msg['isUrl'] == true;
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF059669)))
+                : _messages.isEmpty
+                    ? _buildEmptyChatPlaceholder()
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, index) {
+                          final msg = _messages[index];
+                          final String senderEmail = (msg['senderEmail'] ?? '').toString().toLowerCase();
+                          final bool isMe = senderEmail == widget.currentUserEmail.trim().toLowerCase();
 
-                return Align(
-                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.75,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isUser ? const Color(0xFF0B6E4F) : Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(16),
-                        topRight: const Radius.circular(16),
-                        bottomLeft: Radius.circular(isUser ? 16 : 4),
-                        bottomRight: Radius.circular(isUser ? 4 : 16),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withAlpha(8),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                      children: [
-                        if (isImage && imagePath != null) ...[
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: isUrl || imagePath.startsWith('http')
-                                ? Image.network(
-                                    imagePath,
-                                    width: 200,
-                                    height: 150,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => Container(
-                                      width: 200,
-                                      height: 100,
-                                      color: Colors.grey.shade300,
-                                      child: const Icon(Icons.broken_image, color: Colors.grey),
+                          final bool isImage = msg['type'] == 'image' || (msg['imagePath'] != null && msg['imagePath'].toString().isNotEmpty);
+                          final String? imagePath = msg['imagePath'] as String?;
+
+                          return Align(
+                            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              constraints: BoxConstraints(
+                                maxWidth: MediaQuery.of(context).size.width * 0.76,
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isMe ? const Color(0xFF059669) : Colors.white,
+                                borderRadius: BorderRadius.only(
+                                  topLeft: const Radius.circular(14),
+                                  topRight: const Radius.circular(14),
+                                  bottomLeft: Radius.circular(isMe ? 14 : 2),
+                                  bottomRight: Radius.circular(isMe ? 2 : 14),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withAlpha(8),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                children: [
+                                  if (isImage && imagePath != null) ...[
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: imagePath.startsWith('http') || imagePath.startsWith('blob')
+                                          ? Image.network(
+                                              imagePath,
+                                              width: 200,
+                                              height: 140,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) => Container(
+                                                width: 200,
+                                                height: 100,
+                                                color: Colors.grey.shade300,
+                                                child: const Icon(Icons.broken_image, color: Colors.grey),
+                                              ),
+                                            )
+                                          : (kIsWeb
+                                              ? Image.network(
+                                                  imagePath,
+                                                  width: 200,
+                                                  height: 140,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error, stackTrace) => Container(
+                                                    width: 200,
+                                                    height: 100,
+                                                    color: Colors.grey.shade300,
+                                                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                                                  ),
+                                                )
+                                              : Image.file(
+                                                  File(imagePath),
+                                                  width: 200,
+                                                  height: 140,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error, stackTrace) => Container(
+                                                    width: 200,
+                                                    height: 100,
+                                                    color: Colors.grey.shade300,
+                                                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                                                  ),
+                                                )),
                                     ),
-                                  )
-                                : Image.file(
-                                    File(imagePath),
-                                    width: 200,
-                                    height: 150,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => Container(
-                                      width: 200,
-                                      height: 100,
-                                      color: Colors.grey.shade300,
-                                      child: const Icon(Icons.broken_image, color: Colors.grey),
+                                    const SizedBox(height: 6),
+                                  ],
+                                  Text(
+                                    msg['text'] as String? ?? '',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 13,
+                                      color: isMe ? Colors.white : const Color(0xFF0F172A),
+                                      height: 1.35,
                                     ),
                                   ),
-                          ),
-                          const SizedBox(height: 6),
-                        ],
-                        Text(
-                          msg['text'] as String,
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: isUser ? Colors.white : const Color(0xFF1F2937),
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          msg['time'] as String,
-                          style: GoogleFonts.poppins(
-                            fontSize: 9.5,
-                            color: isUser ? Colors.white70 : const Color(0xFF9CA3AF),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+                                  const SizedBox(height: 3),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        msg['time'] as String? ?? '',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 9.5,
+                                          color: isMe ? Colors.white70 : const Color(0xFF94A3B8),
+                                        ),
+                                      ),
+                                      if (isMe) ...[
+                                        const SizedBox(width: 4),
+                                        const Icon(
+                                          Icons.done_all_rounded,
+                                          size: 14,
+                                          color: Colors.white,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
           ),
 
-          // QUICK CHIP SUGGESTIONS
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Row(
-              children: [
-                _buildQuickChip('Is this item still available?'),
-                _buildQuickChip('Can we meet at Canteen?'),
-                _buildQuickChip('Is the price negotiable?'),
-              ],
-            ),
-          ),
-
-          // BOTTOM INPUT BAR WITH ATTACH & SEND
+          // WHATSAPP-STYLE BOTTOM INPUT BAR
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withAlpha(12),
-                  blurRadius: 10,
-                  offset: const Offset(0, -3),
+                  color: Colors.black.withAlpha(10),
+                  blurRadius: 8,
+                  offset: const Offset(0, -2),
                 ),
               ],
             ),
@@ -822,38 +661,40 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.attach_file_rounded, color: Color(0xFF0B6E4F)),
-                    tooltip: 'Attach Image from Gallery',
+                    icon: const Icon(Icons.attach_file_rounded, color: Color(0xFF059669)),
+                    tooltip: 'Attach Image',
                     onPressed: _showAttachmentPickerModal,
                   ),
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF3F4F6),
+                        color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(24),
                       ),
                       child: TextField(
                         controller: _messageController,
                         style: GoogleFonts.poppins(fontSize: 13),
                         textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _sendMessage(),
+                        onSubmitted: (_) => _canSend ? _sendMessage() : null,
                         decoration: InputDecoration(
-                          hintText: 'Type a message to owner...',
-                          hintStyle: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF9CA3AF)),
+                          hintText: widget.isReseller ? 'Reply to customer...' : 'Type a message to owner...',
+                          hintStyle: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF94A3B8)),
                           border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   InkWell(
-                    onTap: _sendMessage,
+                    onTap: _canSend ? () => _sendMessage() : null,
                     borderRadius: BorderRadius.circular(24),
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
                       padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF0B6E4F),
+                      decoration: BoxDecoration(
+                        color: _canSend ? const Color(0xFF059669) : const Color(0xFFCBD5E1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -868,22 +709,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildQuickChip(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 6.0),
-      child: ActionChip(
-        label: Text(
-          text,
-          style: GoogleFonts.poppins(fontSize: 11, color: const Color(0xFF0B6E4F), fontWeight: FontWeight.w500),
-        ),
-        backgroundColor: const Color(0xFFECFDF5),
-        side: const BorderSide(color: Color(0xFFA7F3D0)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        onPressed: () => _sendMessage(text),
       ),
     );
   }

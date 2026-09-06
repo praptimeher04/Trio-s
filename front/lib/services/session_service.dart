@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class SessionService {
   static const String _keyIsLoggedIn = 'is_logged_in';
+  static const String _keyUserId = 'user_id';
   static const String _keyUserType = 'user_type'; // 0: Student, 1: Reseller
   static const String _keyLastSelectedType = 'last_selected_type';
   static const String _keyUserName = 'user_name';
@@ -34,12 +35,14 @@ class SessionService {
     required int userType,
     required String userName,
     required String userEmail,
+    int? userId,
     String? userRole,
     String? mobileNumber,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_keyIsLoggedIn, isLoggedIn);
+      if (userId != null) await prefs.setInt(_keyUserId, userId);
       await prefs.setInt(_keyUserType, userType);
       await prefs.setInt(_keyLastSelectedType, userType);
       await prefs.setString(_keyUserName, userName);
@@ -54,6 +57,7 @@ class SessionService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final bool isLoggedIn = prefs.getBool(_keyIsLoggedIn) ?? false;
+      final int? userId = prefs.getInt(_keyUserId);
       final int userType = prefs.getInt(_keyLastSelectedType) ?? prefs.getInt(_keyUserType) ?? 0;
       final String userName = prefs.getString(_keyUserName) ?? 'Hitija Mhatre';
       final String userEmail = prefs.getString(_keyUserEmail) ?? 'student@campus.edu';
@@ -62,6 +66,7 @@ class SessionService {
 
       return {
         'isLoggedIn': isLoggedIn,
+        'userId': userId,
         'userType': userType,
         'userName': userName,
         'userEmail': userEmail,

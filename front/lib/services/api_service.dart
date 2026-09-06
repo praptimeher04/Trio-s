@@ -52,12 +52,8 @@ class ApiService {
           final Map<String, dynamic> data = jsonDecode(response.body);
           return {
             'success': true,
-<<<<<<< HEAD
             'message': data['message'] ?? 'User registered successfully in database!',
             'userId': data['userId'],
-=======
-            'message': data['message'] ?? 'User registered successfully!',
->>>>>>> 573e9e486d9083ebe9d747949ef918ce377d0c1d
             'name': data['name'] ?? name,
             'email': data['email'] ?? email,
             'role': data['role'] ?? role,
@@ -149,21 +145,18 @@ class ApiService {
             extractedType = 1;
           }
 
-          final String retEmail = (data['email'] ?? email).toString().toLowerCase();
-          final String retName = (data['name'] ?? '').toString().toLowerCase();
-
-          if (retEmail.contains('purva') || retEmail.contains('reseller') || retName.contains('purva') || email.toLowerCase().contains('purva')) {
-            extractedType = 1;
+          int? userId;
+          if (data['userId'] != null) {
+            userId = int.tryParse(data['userId'].toString());
+          } else if (data['id'] != null) {
+            userId = int.tryParse(data['id'].toString());
           }
 
           return {
             'success': true,
             'message': data['message'] ?? 'Login authenticated successfully!',
-<<<<<<< HEAD
-            'name': data['name'] ?? (email.toLowerCase().contains('purva') ? 'Purva (Reseller)' : 'Hitija Mhatre'),
-=======
+            'userId': userId,
             'name': data['name'] ?? 'Campus User',
->>>>>>> 573e9e486d9083ebe9d747949ef918ce377d0c1d
             'email': data['email'] ?? email,
             'role': data['role'] ?? (extractedType == 1 ? 'Reseller' : 'Student'),
             'userType': extractedType,
@@ -188,18 +181,44 @@ class ApiService {
     }
 
     if (kDebugMode) {
-      print('❌ [API OFFLINE / TIMEOUT FALLBACK] $lastError');
+      print('❌ [API ERROR ALL HOSTS FAILED] $lastError');
     }
-
-    // Seamless login fallback
     return {
-      'success': true,
-      'message': 'Login authenticated successfully!',
-      'name': email.contains('@') ? email.split('@').first : 'Campus User',
-      'email': email,
-      'role': 'Student',
+      'success': false,
+      'message': 'Cannot connect to Spring Boot backend (Port 8085). Ensure Spring Boot server is running.',
     };
   }
+
+  static Future<Map<String, dynamic>?> getUserById(int userId) async {
+    for (final baseUrl in baseUrls) {
+      final url = Uri.parse('$baseUrl/user/$userId');
+      try {
+        final response = await http.get(url).timeout(const Duration(seconds: 4));
+        if (response.statusCode == 200) {
+          final Map<String, dynamic> data = jsonDecode(response.body);
+          int extractedType = 0;
+          if (data['userType'] != null) {
+            extractedType = int.tryParse(data['userType'].toString()) ?? 0;
+          } else if (data['user_type'] != null) {
+            extractedType = int.tryParse(data['user_type'].toString()) ?? 0;
+          }
+
+          return {
+            'userId': data['userId'] ?? userId,
+            'name': data['name'] ?? 'Campus User',
+            'email': data['email'] ?? '',
+            'role': data['role'] ?? (extractedType == 1 ? 'Reseller' : 'Student'),
+            'userType': extractedType,
+            'mobileNumber': data['mobileNumber'] ?? '',
+          };
+        }
+      } catch (e) {
+        if (kDebugMode) print('API getUserById error: $e');
+      }
+    }
+    return null;
+  }
+
 
   static Future<Map<String, dynamic>> createRazorpayOrder({
     required double amount,
@@ -292,6 +311,37 @@ class ApiService {
     return {'success': true, 'paymentId': paymentId};
   }
 
+  static final List<Map<String, String>> _localUploadedProducts = [];
+
+  static void recordLocalProduct({
+    required String title,
+    required String price,
+    required String category,
+    required String condition,
+    required String description,
+    required String sellerName,
+    required String sellerEmail,
+    String? imageUrl,
+  }) {
+    final Map<String, String> item = {
+      'title': title,
+      'price': price,
+      'seller': sellerName,
+      'tag': category,
+      'condition': condition,
+      'description': description,
+      'sellerEmail': sellerEmail.trim().toLowerCase(),
+      'image': (imageUrl != null && imageUrl.isNotEmpty)
+          ? imageUrl
+          : 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80',
+    };
+
+    final exists = _localUploadedProducts.any((p) => p['title'] == title);
+    if (!exists) {
+      _localUploadedProducts.insert(0, item);
+    }
+  }
+
   static Future<Map<String, dynamic>> createProductListing({
     required String title,
     required String price,
@@ -302,6 +352,17 @@ class ApiService {
     required String sellerEmail,
     String? imageUrl,
   }) async {
+    recordLocalProduct(
+      title: title,
+      price: price,
+      category: category,
+      condition: condition,
+      description: description,
+      sellerName: sellerName,
+      sellerEmail: sellerEmail,
+      imageUrl: imageUrl,
+    );
+
     const productBaseUrls = [
       'http://127.0.0.1:8085/api/products',
       'http://localhost:8085/api/products',
@@ -353,11 +414,13 @@ class ApiService {
 
     return {
       'success': true,
-      'message': 'Product published locally (offline mode).',
+      'message': 'Product published locally and synced to Marketplace tab.',
     };
   }
 
   static Future<List<Map<String, String>>> getAllProducts() async {
+    final List<Map<String, String>> allResults = List.from(_localUploadedProducts);
+
     const productBaseUrls = [
       'http://127.0.0.1:8085/api/products',
       'http://localhost:8085/api/products',
@@ -370,7 +433,7 @@ class ApiService {
         final response = await http.get(url).timeout(const Duration(seconds: 6));
         if (response.statusCode == 200) {
           final List<dynamic> list = jsonDecode(response.body);
-          return list.map((item) {
+          final fetched = list.map((item) {
             return {
               'title': (item['title'] ?? '').toString(),
               'price': (item['price'] ?? '').toString(),
@@ -384,15 +447,28 @@ class ApiService {
               'sellerEmail': (item['sellerEmail'] ?? '').toString(),
             };
           }).toList();
+
+          for (final item in fetched) {
+            final exists = allResults.any((existing) => existing['title'] == item['title']);
+            if (!exists) {
+              allResults.add(item);
+            }
+          }
+          return allResults;
         }
       } catch (e) {
         if (kDebugMode) print('API fetch all products error: $e');
       }
     }
-    return [];
+
+    return allResults;
   }
 
   static Future<List<Map<String, String>>> getProductsBySeller(String sellerEmail) async {
+    final List<Map<String, String>> resellerResults = _localUploadedProducts
+        .where((p) => p['sellerEmail']?.toLowerCase() == sellerEmail.trim().toLowerCase())
+        .toList();
+
     const productBaseUrls = [
       'http://127.0.0.1:8085/api/products',
       'http://localhost:8085/api/products',
@@ -406,7 +482,7 @@ class ApiService {
         final response = await http.get(url).timeout(const Duration(seconds: 6));
         if (response.statusCode == 200) {
           final List<dynamic> list = jsonDecode(response.body);
-          return list.map((item) {
+          final fetched = list.map((item) {
             return {
               'title': (item['title'] ?? '').toString(),
               'price': (item['price'] ?? '').toString(),
@@ -421,12 +497,21 @@ class ApiService {
               'views': (item['views'] ?? '1 view').toString(),
             };
           }).toList();
+
+          for (final item in fetched) {
+            final exists = resellerResults.any((existing) => existing['title'] == item['title']);
+            if (!exists) {
+              resellerResults.add(item);
+            }
+          }
+          return resellerResults;
         }
       } catch (e) {
         if (kDebugMode) print('API fetch reseller products error: $e');
       }
     }
-    return [];
+
+    return resellerResults;
   }
 
   static Future<List<Map<String, String>>> getAllOrders() async {
@@ -460,6 +545,136 @@ class ApiService {
       }
     }
     return [];
+  }
+
+  // --- REAL-TIME SUPABASE CHAT API METHODS ---
+  static const List<String> chatBaseUrls = [
+    'http://127.0.0.1:8085/api/chat',
+    'http://localhost:8085/api/chat',
+    'http://10.0.2.2:8085/api/chat',
+  ];
+
+  static Future<Map<String, dynamic>?> getOrCreateConversation({
+    required String customerEmail,
+    required String customerName,
+    required String resellerEmail,
+    required String resellerName,
+    String? productTitle,
+  }) async {
+    for (final baseUrl in chatBaseUrls) {
+      final url = Uri.parse('$baseUrl/get-or-create');
+      try {
+        final response = await http
+            .post(
+              url,
+              headers: {'Content-Type': 'application/json; charset=UTF-8'},
+              body: jsonEncode({
+                'customerEmail': customerEmail.trim().toLowerCase(),
+                'customerName': customerName.trim(),
+                'resellerEmail': resellerEmail.trim().toLowerCase(),
+                'resellerName': resellerName.trim(),
+                'productTitle': productTitle ?? 'Campus Item',
+              }),
+            )
+            .timeout(const Duration(seconds: 6));
+
+        if (response.statusCode == 200) {
+          return jsonDecode(response.body) as Map<String, dynamic>;
+        }
+      } catch (e) {
+        if (kDebugMode) print('API getOrCreateConversation error: $e');
+      }
+    }
+    return null;
+  }
+
+  static Future<List<Map<String, dynamic>>> getUserConversations(String userEmail) async {
+    final encoded = Uri.encodeComponent(userEmail.trim().toLowerCase());
+    for (final baseUrl in chatBaseUrls) {
+      final url = Uri.parse('$baseUrl/conversations/$encoded');
+      try {
+        final response = await http.get(url).timeout(const Duration(seconds: 6));
+        if (response.statusCode == 200) {
+          final List<dynamic> list = jsonDecode(response.body);
+          return list.cast<Map<String, dynamic>>();
+        }
+      } catch (e) {
+        if (kDebugMode) print('API getUserConversations error: $e');
+      }
+    }
+    return [];
+  }
+
+  static Future<List<Map<String, dynamic>>> getConversationMessages(int conversationId) async {
+    for (final baseUrl in chatBaseUrls) {
+      final url = Uri.parse('$baseUrl/messages/$conversationId');
+      try {
+        final response = await http.get(url).timeout(const Duration(seconds: 6));
+        if (response.statusCode == 200) {
+          final List<dynamic> list = jsonDecode(response.body);
+          return list.cast<Map<String, dynamic>>();
+        }
+      } catch (e) {
+        if (kDebugMode) print('API getConversationMessages error: $e');
+      }
+    }
+    return [];
+  }
+
+  static Future<List<Map<String, dynamic>>> sendChatMessage({
+    required int conversationId,
+    required String senderEmail,
+    required String senderName,
+    required String receiverEmail,
+    required String text,
+    String? imagePath,
+    String messageType = 'text',
+  }) async {
+    for (final baseUrl in chatBaseUrls) {
+      final url = Uri.parse('$baseUrl/send');
+      try {
+        final response = await http
+            .post(
+              url,
+              headers: {'Content-Type': 'application/json; charset=UTF-8'},
+              body: jsonEncode({
+                'conversationId': conversationId,
+                'senderEmail': senderEmail.trim().toLowerCase(),
+                'senderName': senderName.trim(),
+                'receiverEmail': receiverEmail.trim().toLowerCase(),
+                'messageText': text.trim(),
+                'imagePath': imagePath,
+                'messageType': messageType,
+              }),
+            )
+            .timeout(const Duration(seconds: 6));
+
+        if (response.statusCode == 200) {
+          final decoded = jsonDecode(response.body);
+          if (decoded is List) {
+            return decoded.cast<Map<String, dynamic>>();
+          } else if (decoded is Map<String, dynamic>) {
+            return [decoded];
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) print('API sendChatMessage error: $e');
+      }
+    }
+    return [];
+  }
+
+  static Future<void> markConversationRead(int conversationId, String userEmail) async {
+    final encoded = Uri.encodeComponent(userEmail.trim().toLowerCase());
+    for (final baseUrl in chatBaseUrls) {
+      final url = Uri.parse('$baseUrl/mark-read/$conversationId?userEmail=$encoded');
+      try {
+        await http.post(url).timeout(const Duration(seconds: 4));
+        return;
+      } catch (e) {
+        if (kDebugMode) print('API markConversationRead error: $e');
+      }
+    }
   }
 }
 

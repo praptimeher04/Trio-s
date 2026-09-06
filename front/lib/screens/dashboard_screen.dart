@@ -4,12 +4,12 @@ import '../theme/app_theme.dart';
 import '../widgets/feature_modal.dart';
 import '../services/session_service.dart';
 import '../services/api_service.dart';
-import 'login_screen.dart';
 import 'profile_screen.dart';
 import 'product_details_screen.dart';
 import 'chat_screen.dart';
 import 'cart_screen.dart';
 import 'reseller_dashboard_screen.dart';
+import '../widgets/logout_dialog.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String userName;
@@ -59,19 +59,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _fetchMarketplaceProducts() async {
     final fetched = await ApiService.getAllProducts();
-    if (mounted && fetched.isNotEmpty) {
+    if (mounted) {
       setState(() {
+        _engineeringProducts.clear();
+        _commerceProducts.clear();
+        _scienceProducts.clear();
+
         for (final item in fetched) {
           final cat = (item['tag'] ?? '').toLowerCase();
           if (cat.contains('commerce') || cat.contains('finance') || cat.contains('bba') || cat.contains('b.com')) {
             final exists = _commerceProducts.any((existing) => existing['title'] == item['title']);
-            if (!exists) _commerceProducts.insert(0, item);
+            if (!exists) _commerceProducts.add(item);
           } else if (cat.contains('science') || cat.contains('bio') || cat.contains('chem') || cat.contains('physics')) {
             final exists = _scienceProducts.any((existing) => existing['title'] == item['title']);
-            if (!exists) _scienceProducts.insert(0, item);
+            if (!exists) _scienceProducts.add(item);
           } else {
             final exists = _engineeringProducts.any((existing) => existing['title'] == item['title']);
-            if (!exists) _engineeringProducts.insert(0, item);
+            if (!exists) _engineeringProducts.add(item);
           }
         }
       });
@@ -140,6 +144,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase();
   }
 
+  Future<void> _handleResellerSwap() async {
+    final session = await SessionService.getSession();
+    final int? userId = session['userId'] != null ? int.tryParse(session['userId'].toString()) : null;
+
+    // Save session as Reseller (userType = 1) when swapping to Reseller Panel
+    await SessionService.saveSession(
+      isLoggedIn: true,
+      userId: userId,
+      userType: 1,
+      userName: _displayName,
+      userEmail: widget.userEmail,
+      userRole: 'Reseller',
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('🔄 Switched to Reseller Panel (Type 1) - Welcome $_displayName!'),
+        backgroundColor: const Color(0xFF059669),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => ResellerDashboardScreen(
+          resellerName: _displayName,
+          resellerEmail: widget.userEmail,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // 3 Clean Tabs: Home, Marketplace, Profile
@@ -165,6 +204,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        toolbarHeight: 64,
         backgroundColor: Colors.white,
         elevation: 1,
         shadowColor: Colors.black.withAlpha(15),
@@ -203,47 +243,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         _currentBottomNavIndex = 2; // Switch to Profile tab
                       });
                     },
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: AppColors.primary,
-                          child: Text(
-                            _initials,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: AppColors.primary,
+                            child: Text(
+                              _initials,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _displayName,
-                              style: GoogleFonts.poppins(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _displayName,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                  height: 1.1,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            Text(
-                              '${widget.userRole} • #2026-CS-892',
-                              style: GoogleFonts.poppins(
-                                fontSize: 10.5,
-                                color: AppColors.textSecondary,
+                              Text(
+                                '${widget.userRole} • #2026-CS-892',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 9.5,
+                                  color: AppColors.textSecondary,
+                                  height: 1.1,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
         actions: [
+          // 1. Swap Icon Button (ALWAYS VISIBLE IN TOP BAR)
+          IconButton(
+            tooltip: 'Swap to Reseller Panel (Type 1)',
+            icon: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: const Color(0xFFECFDF5),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFA7F3D0), width: 1.5),
+              ),
+              alignment: Alignment.center,
+              child: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF059669), size: 20),
+            ),
+            onPressed: _handleResellerSwap,
+          ),
+
           if (_currentBottomNavIndex == 1) ...[
-            // MARKETPLACE ONLY: CART BUTTON (NO NOTIFICATION, NO LOGOUT)
+            // MARKETPLACE TAB: CART BUTTON
             Stack(
               alignment: Alignment.topRight,
               children: [
@@ -294,9 +364,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
               ],
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
           ] else ...[
-            // HOME & PROFILE TABS: Notifications & Logout Action
+            // OTHER TABS: NOTIFICATION BELL
             Stack(
               alignment: Alignment.topRight,
               children: [
@@ -331,46 +401,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
               ],
             ),
-            IconButton(
-              tooltip: 'Switch to Reseller Panel (Type 1)',
-              icon: const Icon(Icons.storefront_rounded, color: Color(0xFF0B6E4F), size: 24),
-              onPressed: () async {
-                await SessionService.saveSession(
-                  isLoggedIn: true,
-                  userType: 1,
-                  userName: _displayName,
-                  userEmail: widget.userEmail,
-                  userRole: 'Reseller',
-                );
-                if (context.mounted) {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => ResellerDashboardScreen(
-                        resellerName: _displayName,
-                        resellerEmail: widget.userEmail,
-                      ),
-                    ),
-                  );
-                }
-              },
-            ),
-            IconButton(
-              tooltip: 'Logout',
-              icon: const Icon(Icons.logout_rounded, color: AppColors.textSecondary, size: 22),
-              onPressed: () async {
-                await SessionService.clearSession();
-                if (context.mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(
-                      builder: (context) => const LoginScreen(),
-                    ),
-                    (route) => false,
-                  );
-                }
-              },
-            ),
-            const SizedBox(width: 4),
           ],
+
+          // LOGOUT BUTTON
+          IconButton(
+            tooltip: 'Logout',
+            icon: const Icon(Icons.logout_rounded, color: AppColors.textSecondary, size: 22),
+            onPressed: () => showLogoutConfirmationDialog(context),
+          ),
+          const SizedBox(width: 6),
         ],
       ),
 
@@ -448,7 +487,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _buildMiddleMetricsGrid(),
           const SizedBox(height: 28),
 
-          // MAIN FEATURES GRID (Marketplace, Wallet, Savings, Fee Tracker)
+          // MAIN FEATURES GRID (Marketplace, Reseller Panel, Wallet, Savings, Fee Tracker)
           Text(
             'Main Campus Services',
             style: GoogleFonts.poppins(
@@ -463,6 +502,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+
 
   // --- TAB 2: MARKETPLACE VIEW ---
   Widget _buildMarketplaceView() {
@@ -836,11 +877,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => ProductDetailsScreen(
-                product: prod,
-                userName: widget.userName,
-                userEmail: widget.userEmail,
-              ),
+                                      builder: (context) => ProductDetailsScreen(
+                                        product: prod,
+                                        userName: _displayName,
+                                        userEmail: widget.userEmail,
+                                      ),
             ),
           );
         },
@@ -905,7 +946,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 6),
-                        Row(
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
                           children: [
                             if (tag != null) ...[
                               Container(
@@ -923,7 +966,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 6),
                             ],
                             if (condition != null) ...[
                               Container(
@@ -995,15 +1037,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             padding: const EdgeInsets.all(6),
                             tooltip: 'Chat with Reseller',
                             icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Color(0xFF0B6E4F)),
-                            onPressed: () {
-                              Navigator.of(context).push(
+                            onPressed: () async {
+                              final navigator = Navigator.of(context);
+                              final String resellerEmail = (prod['sellerEmail'] != null && prod['sellerEmail']!.isNotEmpty)
+                                  ? prod['sellerEmail']!
+                                  : 'sneha.cse@campus.edu';
+
+                              final convData = await ApiService.getOrCreateConversation(
+                                customerEmail: widget.userEmail,
+                                customerName: _displayName,
+                                resellerEmail: resellerEmail,
+                                resellerName: seller,
+                                productTitle: title,
+                              );
+
+                              final int? convId = convData != null && convData['conversationId'] != null
+                                  ? int.tryParse(convData['conversationId'].toString())
+                                  : null;
+
+                              if (!mounted) return;
+                              navigator.push(
                                 MaterialPageRoute(
                                   builder: (context) => ChatScreen(
+                                    conversationId: convId,
                                     sellerName: seller,
                                     productTitle: title,
                                     productPrice: price,
                                     productImage: imageUrl,
                                     sellerAvatar: prod['avatar'] ?? (seller.isNotEmpty ? seller[0].toUpperCase() : 'S'),
+                                    currentUserName: _displayName,
+                                    currentUserEmail: widget.userEmail,
+                                    peerEmail: resellerEmail,
+                                    isReseller: false,
                                   ),
                                 ),
                               );
@@ -1035,7 +1100,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   MaterialPageRoute(
                                     builder: (context) => ProductDetailsScreen(
                                       product: prod,
-                                      userName: widget.userName,
+                                      userName: _displayName,
                                       userEmail: widget.userEmail,
                                     ),
                                   ),
@@ -1212,7 +1277,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 1.6,
+      childAspectRatio: 1.35,
       children: [
         _buildMetricCard('Total Savings', '₹8,250.00', '+12% this month', Icons.savings_rounded, const Color(0xFF10B981)),
         _buildMetricCard('Total Earnings', '₹12,400.00', 'Stipends & Grants', Icons.trending_up_rounded, const Color(0xFF059669)),
@@ -1222,7 +1287,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildMetricCard(String title, String value, String subtitle, IconData icon, Color iconColor) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -1242,24 +1307,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+              Flexible(
+                child: Text(
+                  title,
+                  style: GoogleFonts.poppins(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 4),
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(color: iconColor.withAlpha(25), shape: BoxShape.circle),
-                child: Icon(icon, color: iconColor, size: 16),
+                child: Icon(icon, color: iconColor, size: 15),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(value, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          const SizedBox(height: 4),
+          Text(value, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
-          Text(subtitle, style: GoogleFonts.poppins(fontSize: 10.5, color: iconColor, fontWeight: FontWeight.w500)),
+          Text(subtitle, style: GoogleFonts.poppins(fontSize: 10, color: iconColor, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       ),
     );
   }
 
-  // --- MAIN FEATURE GRID (Marketplace, Wallet, Savings, Fee Tracker) ---
+  // --- MAIN FEATURE GRID (Marketplace, Reseller Panel, Wallet, Savings, Fee Tracker) ---
   Widget _buildMainFeatureGrid(BuildContext context) {
     final List<Map<String, dynamic>> features = [
       {
@@ -1268,6 +1341,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'icon': Icons.storefront_rounded,
         'color': const Color(0xFF059669),
         'onTap': () => setState(() => _currentBottomNavIndex = 1),
+      },
+      {
+        'title': 'Reseller Panel',
+        'subtitle': 'Swap to Seller Mode (Type 1)',
+        'icon': Icons.swap_horiz_rounded,
+        'color': const Color(0xFF0D9488),
+        'onTap': _handleResellerSwap,
       },
       {
         'title': 'Wallet',
@@ -1299,7 +1379,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 1.45,
+        childAspectRatio: 1.3,
       ),
       itemCount: features.length,
       itemBuilder: (context, index) {
@@ -1309,7 +1389,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onTap: feat['onTap'] as VoidCallback,
           borderRadius: BorderRadius.circular(20),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../services/session_service.dart';
-import 'login_screen.dart';
 import 'reseller_dashboard_screen.dart';
+import '../widgets/logout_dialog.dart';
 
 class ProfileScreen extends StatelessWidget {
   final String userName;
@@ -54,17 +54,7 @@ class ProfileScreen extends StatelessWidget {
           IconButton(
             tooltip: 'Logout',
             icon: const Icon(Icons.logout_rounded, color: AppColors.error),
-            onPressed: () async {
-              await SessionService.clearSession();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (context) => const LoginScreen(),
-                  ),
-                  (route) => false,
-                );
-              }
-            },
+            onPressed: () => showLogoutConfirmationDialog(context),
           ),
           const SizedBox(width: 8),
         ],
@@ -351,20 +341,43 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
 
-                // Reseller Panel Option
+                // Reseller Panel / Swap Panel Option
                 ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => ResellerDashboardScreen(
-                          resellerName: userName,
-                          resellerEmail: userEmail,
-                        ),
-                      ),
+                  onPressed: () async {
+                    final session = await SessionService.getSession();
+                    final int? userId = session['userId'] != null ? int.tryParse(session['userId'].toString()) : null;
+
+                    if (!context.mounted) return;
+
+                    await SessionService.saveSession(
+                      isLoggedIn: true,
+                      userId: userId,
+                      userType: 1,
+                      userName: userName,
+                      userEmail: userEmail,
+                      userRole: 'Reseller',
                     );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('🔄 Switched to Reseller Panel (Type 1) - Welcome $userName!'),
+                          backgroundColor: const Color(0xFF059669),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (context) => ResellerDashboardScreen(
+                            resellerName: userName,
+                            resellerEmail: userEmail,
+                          ),
+                        ),
+                      );
+                    }
                   },
-                  icon: const Icon(Icons.storefront_rounded, color: Colors.white),
-                  label: const Text('Open Reseller Panel (Type 1)'),
+                  icon: const Icon(Icons.swap_horiz_rounded, color: Colors.white),
+                  label: const Text('Switch / Swap to Reseller Panel (Type 1)'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0B6E4F),
                     foregroundColor: Colors.white,
@@ -379,17 +392,7 @@ class ProfileScreen extends StatelessWidget {
 
                 // Logout Button
                 ElevatedButton.icon(
-                  onPressed: () async {
-                    await SessionService.clearSession();
-                    if (context.mounted) {
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(
-                          builder: (context) => const LoginScreen(),
-                        ),
-                        (route) => false,
-                      );
-                    }
-                  },
+                  onPressed: () => showLogoutConfirmationDialog(context),
                   icon: const Icon(Icons.logout_rounded, color: Colors.white),
                   label: const Text('Sign Out of Account'),
                   style: ElevatedButton.styleFrom(

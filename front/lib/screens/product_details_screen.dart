@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../widgets/razorpay_payment_modal.dart';
+import '../services/api_service.dart';
 import 'chat_screen.dart';
 import 'cart_screen.dart';
 
@@ -317,15 +318,38 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).push(
+                    onPressed: () async {
+                      final navigator = Navigator.of(context);
+                      final String resellerEmail = (widget.product['sellerEmail'] != null && widget.product['sellerEmail']!.isNotEmpty)
+                          ? widget.product['sellerEmail']!
+                          : 'sneha.cse@campus.edu';
+
+                      final convData = await ApiService.getOrCreateConversation(
+                        customerEmail: widget.userEmail,
+                        customerName: widget.userName,
+                        resellerEmail: resellerEmail,
+                        resellerName: _seller,
+                        productTitle: _title,
+                      );
+
+                      final int? convId = convData != null && convData['conversationId'] != null
+                          ? int.tryParse(convData['conversationId'].toString())
+                          : null;
+
+                      if (!mounted) return;
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (context) => ChatScreen(
+                            conversationId: convId,
                             sellerName: _seller,
                             productTitle: _title,
                             productPrice: _price,
                             productImage: _image,
                             sellerAvatar: _avatar,
+                            currentUserName: widget.userName,
+                            currentUserEmail: widget.userEmail,
+                            peerEmail: resellerEmail,
+                            isReseller: false,
                           ),
                         ),
                       );

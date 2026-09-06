@@ -94,11 +94,12 @@ public class AuthController {
         if (userOptional.isPresent()) {
             user = userOptional.get();
         } else {
-            int reqType = (request.getUserType() != null && request.getUserType() == 1) || email.contains("reseller") || email.contains("purva") ? 1 : 0;
+            // Auto-create user if purva/reseller or type 1 is selected
+            int reqType = (request.getUserType() != null && request.getUserType() == 1) ||
+                    email.contains("purva") || email.contains("reseller") ? 1 : 0;
             String reqRole = reqType == 1 ? "Reseller" : "Student";
             String rawPassword = request.getPassword() != null && !request.getPassword().isEmpty() ? request.getPassword() : "Pass@1234";
-
-            String defaultName = email.contains("@") ? email.split("@")[0] : (email.contains("purva") ? "Purva (Reseller)" : (reqType == 1 ? "Reseller User" : "Campus Student"));
+            String defaultName = email.contains("@") ? email.split("@")[0] : (email.equalsIgnoreCase("purva") ? "Purva Reseller" : "Campus User");
 
             user = User.builder()
                     .name(defaultName)
@@ -111,11 +112,16 @@ public class AuthController {
             user = userRepository.save(user);
         }
 
-        int calculatedUserType = (user.getUserType() != null && user.getUserType() == 1)
-                || (user.getRole() != null && user.getRole().equalsIgnoreCase("Reseller"))
-                || user.getEmail().toLowerCase().contains("purva")
-                || user.getName().toLowerCase().contains("purva")
-                ? 1 : 0;
+        if ((request.getUserType() != null && request.getUserType() == 1) ||
+                (user.getRole() != null && user.getRole().equalsIgnoreCase("Reseller")) ||
+                (user.getEmail() != null && (user.getEmail().toLowerCase().contains("purva") || user.getEmail().toLowerCase().contains("reseller"))) ||
+                (user.getName() != null && user.getName().toLowerCase().contains("purva"))) {
+            user.setUserType(1);
+            user.setRole("Reseller");
+            user = userRepository.save(user);
+        }
+
+        int calculatedUserType = user.getUserType() != null ? user.getUserType() : 0;
 
         return ResponseEntity.ok(
                 AuthResponse.builder()
@@ -124,9 +130,80 @@ public class AuthController {
                         .userId(user.getId())
                         .name(user.getName())
                         .email(user.getEmail())
-                        .role(calculatedUserType == 1 ? "Reseller" : user.getRole())
+                        .role(calculatedUserType == 1 ? "Reseller" : (user.getRole() != null ? user.getRole() : "Student"))
                         .userType(calculatedUserType)
                         .mobileNumber(user.getMobileNumber() != null ? user.getMobileNumber() : "+91 98765 43210")
+                        .build()
+        );
+    }
+
+    @GetMapping("/user/{id}")
+    public ResponseEntity<AuthResponse> getUserById(@PathVariable Long id) {
+        Optional<User> userOptional = userRepository.findById(id);
+        if (userOptional.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    AuthResponse.builder()
+                            .success(false)
+                            .message("User record not found in database.")
+                            .build()
+            );
+        }
+
+        User user = userOptional.get();
+        if ((user.getRole() != null && user.getRole().equalsIgnoreCase("Reseller")) ||
+                (user.getEmail() != null && (user.getEmail().toLowerCase().contains("purva") || user.getEmail().toLowerCase().contains("reseller"))) ||
+                (user.getName() != null && user.getName().toLowerCase().contains("purva"))) {
+            user.setUserType(1);
+            user.setRole("Reseller");
+            user = userRepository.save(user);
+        }
+
+        int userTypeVal = user.getUserType() != null ? user.getUserType() : 0;
+
+        return ResponseEntity.ok(
+                AuthResponse.builder()
+                        .success(true)
+                        .message("User details retrieved successfully.")
+                        .userId(user.getId())
+                        .name(user.getName())
+                        .email(user.getEmail())
+                        .role(userTypeVal == 1 ? "Reseller" : (user.getRole() != null ? user.getRole() : "Student"))
+                        .userType(userTypeVal)
+                        .mobileNumber(user.getMobileNumber() != null ? user.getMobileNumber() : "+91 98765 43210")
+                        .build()
+        );
+    }
+
+    @GetMapping("/verify-reseller/{id}")
+    public ResponseEntity<AuthResponse> verifyReseller(@PathVariable Long id) {
+        Optional<User> userOptional = userRepository.findById(id);
+        if (userOptional.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    AuthResponse.builder()
+                            .success(false)
+                            .message("User record not found.")
+                            .build()
+            );
+        }
+
+        User user = userOptional.get();
+        if (user.getUserType() != null && user.getUserType() == 1) {
+            return ResponseEntity.ok(
+                    AuthResponse.builder()
+                            .success(true)
+                            .message("User is an authorized reseller (user_type = 1).")
+                            .userId(user.getId())
+                            .userType(1)
+                            .build()
+            );
+        }
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                AuthResponse.builder()
+                        .success(false)
+                        .message("Access denied. User is not a reseller (user_type = 0).")
+                        .userId(user.getId())
+                        .userType(0)
                         .build()
         );
     }

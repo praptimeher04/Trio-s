@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
+import '../services/api_service.dart';
+import 'scholarship_apply_stepper_screen.dart';
 
 class ScholarshipScreen extends StatefulWidget {
   final String userName;
@@ -23,6 +26,7 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
   // Search & Filter State
   String _searchQuery = '';
   String _selectedCategory = 'All';
+  String _selectedTrackerFilter = 'All';
   String? _expandedAppId;
 
   // Smart Eligibility Checker State
@@ -37,11 +41,11 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
   // Notification Reminders State
   bool _remindersEnabled = true;
 
-  // FinTech Color Palette (Emerald Green, Crisp White, Metallic Gold Accent)
-  static const Color primaryGreen = Color(0xFF0D5C3A);
+  // Light Green FinTech Palette (#10B981 / #059669 / #ECFDF5)
+  static const Color primaryGreen = Color(0xFF10B981);
   static const Color emeraldAccent = Color(0xFF059669);
-  static const Color goldAccent = Color(0xFFD4AF37);
-  static const Color goldLight = Color(0xFFFFF9E6);
+  static const Color goldAccent = Color(0xFFF59E0B);
+  static const Color goldLight = Color(0xFFFEF3C7);
   static const Color cardBg = Color(0xFFFFFFFF);
 
   // Digital Document Vault Manager
@@ -236,6 +240,7 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
       'matchScore': 98,
       'feeImpactText': 'Covers ₹25,000 of Tuition Fee',
       'boardTag': 'MSBTE Board',
+      'portalUrl': 'https://msbte.org.in/',
       'requiredDocs': [
         'Aadhaar Card',
         'Semester Marksheet',
@@ -257,6 +262,7 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
       'matchScore': 96,
       'feeImpactText': '50% Tuition Fee Subsidy (₹19,000)',
       'boardTag': 'MahaDBT Portal',
+      'portalUrl': 'https://mahadbt.maharashtra.gov.in/',
       'requiredDocs': [
         'Income Certificate',
         'Aadhaar Card',
@@ -278,6 +284,7 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
       'matchScore': 90,
       'feeImpactText': 'Direct Hostel Fee Waiver (₹30,000)',
       'boardTag': 'State Govt',
+      'portalUrl': 'https://mahadbt.maharashtra.gov.in/',
       'requiredDocs': [
         'Hostel Fee Receipt',
         'Alpabhudharak Certificate',
@@ -298,6 +305,7 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
       'matchScore': 92,
       'feeImpactText': 'Covers 100% Tuition Fee (₹38,000)',
       'boardTag': 'MahaDBT Portal',
+      'portalUrl': 'https://mahadbt.maharashtra.gov.in/',
       'requiredDocs': [
         'Caste Certificate',
         'Caste Validity',
@@ -319,6 +327,7 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
       'matchScore': 85,
       'feeImpactText': 'Covers ₹20,000 Annual Tuition',
       'boardTag': 'Central Govt',
+      'portalUrl': 'https://scholarships.gov.in/',
       'requiredDocs': ['12th Marksheet', 'Aadhaar Card', 'Bank Passbook'],
     },
     {
@@ -335,6 +344,7 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
       'matchScore': 94,
       'feeImpactText': 'Covers Full Semester Fee + Laptop Grant',
       'boardTag': 'Tata Trust',
+      'portalUrl': 'https://www.tatatrusts.org/',
       'requiredDocs': [
         'College Bonafide',
         'Transcript (All Sems)',
@@ -444,31 +454,40 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
   Widget _buildTopTabBar() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       child: Container(
+        height: 46,
         decoration: BoxDecoration(
           color: const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(14),
         ),
-        padding: const EdgeInsets.all(3),
+        padding: const EdgeInsets.all(4),
         child: TabBar(
           controller: _tabController,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
+          isScrollable: false,
+          indicatorSize: TabBarIndicatorSize.tab,
           indicator: BoxDecoration(
             color: primaryGreen,
-            borderRadius: BorderRadius.circular(11),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: primaryGreen.withValues(alpha: 0.3),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           labelColor: Colors.white,
-          unselectedLabelColor: AppColors.textSecondary,
+          unselectedLabelColor: const Color(0xFF64748B),
           labelStyle: GoogleFonts.poppins(
-            fontSize: 12,
+            fontSize: 11.5,
             fontWeight: FontWeight.bold,
           ),
           unselectedLabelStyle: GoogleFonts.poppins(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
           ),
+          labelPadding: EdgeInsets.zero,
           dividerColor: Colors.transparent,
           tabs: const [
             Tab(text: 'Dashboard'),
@@ -1082,6 +1101,20 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
   // TAB 2: TRACKER (7-STAGE TIMELINE)
   // ==========================================
   Widget _buildApplicationsTab() {
+    final filteredApps = _myApplications.where((app) {
+      if (_selectedTrackerFilter == 'All') return true;
+      if (_selectedTrackerFilter == 'Approved') {
+        return app['status'].toString().contains('Approved');
+      }
+      if (_selectedTrackerFilter == 'Under Review') {
+        return app['status'].toString().contains('Review') || app['status'].toString().contains('Pending');
+      }
+      if (_selectedTrackerFilter == 'Submitted') {
+        return app['status'].toString().contains('Submitted');
+      }
+      return true;
+    }).toList();
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(18.0),
@@ -1142,10 +1175,47 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
               ],
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
+
+          // Tracker Filter Chips Row
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: ['All', 'Submitted', 'Under Review', 'Approved'].map((flt) {
+                final isSel = _selectedTrackerFilter == flt;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: FilterChip(
+                    label: Text(flt),
+                    selected: isSel,
+                    onSelected: (selected) {
+                      setState(() {
+                        _selectedTrackerFilter = flt;
+                      });
+                    },
+                    selectedColor: primaryGreen,
+                    backgroundColor: Colors.white,
+                    labelStyle: GoogleFonts.poppins(
+                      fontSize: 11.5,
+                      fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                      color: isSel ? Colors.white : AppColors.textPrimary,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: isSel ? primaryGreen : Colors.grey[300]!,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 14),
 
           Text(
-            'My Active Submissions (${_myApplications.length})',
+            'My Active Submissions (${filteredApps.length})',
             style: GoogleFonts.poppins(
               fontSize: 15,
               fontWeight: FontWeight.bold,
@@ -1153,210 +1223,308 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
           ),
           const SizedBox(height: 12),
 
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _myApplications.length,
-            itemBuilder: (context, index) {
-              final app = _myApplications[index];
-              final isExpanded = _expandedAppId == app['id'];
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 14),
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: isExpanded ? primaryGreen : Colors.grey[200]!,
-                    width: isExpanded ? 1.5 : 1,
+          filteredApps.isEmpty
+              ? Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.grey[200]!),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(6),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 6,
+                  child: Column(
+                    children: [
+                      Icon(Icons.assignment_late_outlined, size: 42, color: Colors.grey[400]),
+                      const SizedBox(height: 10),
+                      Text(
+                        'No Applications Found',
+                        style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                       ),
-                      title: Text(
-                        app['title'] as String,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.bold,
+                      Text(
+                        'Go to Discover tab to browse schemes and fill application forms.',
+                        style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filteredApps.length,
+                  itemBuilder: (context, index) {
+                    final app = filteredApps[index];
+                    final isExpanded = _expandedAppId == app['id'];
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isExpanded ? primaryGreen : Colors.grey[200]!,
+                          width: isExpanded ? 1.5 : 1,
                         ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 3),
-                          Text(
-                            app['provider'] as String,
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: (app['statusColor'] as Color)
-                                      .withAlpha(20),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  app['status'] as String,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: app['statusColor'] as Color,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                app['amount'] as String,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: goldAccent,
-                                ),
-                              ),
-                            ],
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(6),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      trailing: IconButton(
-                        icon: Icon(
-                          isExpanded
-                              ? Icons.keyboard_arrow_up_rounded
-                              : Icons.keyboard_arrow_down_rounded,
-                          color: primaryGreen,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _expandedAppId = isExpanded
-                                ? null
-                                : (app['id'] as String);
-                          });
-                        },
-                      ),
-                    ),
-
-                    if (isExpanded)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Divider(),
-                            const SizedBox(height: 6),
-                            Text(
-                              '7-Stage Audit Timeline Progress',
+                      child: Column(
+                        children: [
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 6,
+                            ),
+                            title: Text(
+                              app['title'] as String,
                               style: GoogleFonts.poppins(
-                                fontSize: 12.5,
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.bold,
-                                color: primaryGreen,
                               ),
                             ),
-                            const SizedBox(height: 12),
-
-                            _build7StageVisualTimeline(
-                              app['stageIndex'] as int,
-                            ),
-                            const SizedBox(height: 16),
-
-                            Column(
-                              children: List.generate(
-                                (app['stepsDetail'] as List).length,
-                                (sIdx) {
-                                  final step =
-                                      (app['stepsDetail'] as List)[sIdx];
-                                  final isDone =
-                                      sIdx <= (app['stageIndex'] as int);
-                                  return Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Column(
-                                        children: [
-                                          Icon(
-                                            isDone
-                                                ? Icons.check_circle_rounded
-                                                : Icons
-                                                      .radio_button_unchecked_rounded,
-                                            size: 16,
-                                            color: isDone
-                                                ? primaryGreen
-                                                : Colors.grey[400],
-                                          ),
-                                          if (sIdx <
-                                              (app['stepsDetail'] as List)
-                                                      .length -
-                                                  1)
-                                            Container(
-                                              width: 2,
-                                              height: 22,
-                                              color: isDone
-                                                  ? primaryGreen
-                                                  : Colors.grey[300],
-                                            ),
-                                        ],
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 3),
+                                Text(
+                                  app['provider'] as String,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              step['name'] as String,
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 11.5,
-                                                fontWeight: isDone
-                                                    ? FontWeight.bold
-                                                    : FontWeight.normal,
-                                                color: isDone
-                                                    ? AppColors.textPrimary
-                                                    : Colors.grey[600],
-                                              ),
-                                            ),
-                                            Text(
-                                              '${step['time']} • Officer: ${step['by']}',
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 10,
-                                                color: Colors.grey[500],
-                                              ),
-                                            ),
-                                            const SizedBox(height: 6),
-                                          ],
+                                      decoration: BoxDecoration(
+                                        color: (app['statusColor'] as Color)
+                                            .withAlpha(20),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        app['status'] as String,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: app['statusColor'] as Color,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      app['amount'] as String,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: goldAccent,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            trailing: IconButton(
+                              icon: Icon(
+                                isExpanded
+                                    ? Icons.keyboard_arrow_up_rounded
+                                    : Icons.keyboard_arrow_down_rounded,
+                                color: primaryGreen,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _expandedAppId = isExpanded
+                                      ? null
+                                      : (app['id'] as String);
+                                });
+                              },
+                            ),
+                          ),
+
+                          if (isExpanded)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Divider(),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        '7-Stage Audit Timeline Progress',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: primaryGreen,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Ref: ${app['id']}',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey[600],
                                         ),
                                       ),
                                     ],
-                                  );
-                                },
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  _build7StageVisualTimeline(
+                                    app['stageIndex'] as int,
+                                  ),
+                                  const SizedBox(height: 16),
+
+                                  Column(
+                                    children: List.generate(
+                                      (app['stepsDetail'] as List).length,
+                                      (sIdx) {
+                                        final step =
+                                            (app['stepsDetail'] as List)[sIdx];
+                                        final isDone =
+                                            sIdx <= (app['stageIndex'] as int);
+                                        return Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Column(
+                                              children: [
+                                                Icon(
+                                                  isDone
+                                                      ? Icons.check_circle_rounded
+                                                      : Icons
+                                                            .radio_button_unchecked_rounded,
+                                                  size: 16,
+                                                  color: isDone
+                                                      ? primaryGreen
+                                                      : Colors.grey[400],
+                                                ),
+                                                if (sIdx <
+                                                    (app['stepsDetail'] as List)
+                                                            .length -
+                                                        1)
+                                                  Container(
+                                                    width: 2,
+                                                    height: 22,
+                                                    color: isDone
+                                                        ? primaryGreen
+                                                        : Colors.grey[300],
+                                                  ),
+                                              ],
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    step['name'] as String,
+                                                    style: GoogleFonts.poppins(
+                                                      fontSize: 11.5,
+                                                      fontWeight: isDone
+                                                          ? FontWeight.bold
+                                                          : FontWeight.normal,
+                                                      color: isDone
+                                                          ? AppColors.textPrimary
+                                                          : Colors.grey[600],
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    '${step['time']} • Officer: ${step['by']}',
+                                                    style: GoogleFonts.poppins(
+                                                      fontSize: 10,
+                                                      color: Colors.grey[500],
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 14),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          onPressed: () => _openSubmittedFormDetailsModal(app),
+                                          icon: const Icon(
+                                            Icons.visibility_rounded,
+                                            size: 14,
+                                            color: primaryGreen,
+                                          ),
+                                          label: Text(
+                                            'View Form & Docs',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: primaryGreen,
+                                            ),
+                                          ),
+                                          style: OutlinedButton.styleFrom(
+                                            side: const BorderSide(
+                                              color: primaryGreen,
+                                              width: 1.2,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(vertical: 10),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: ElevatedButton.icon(
+                                          onPressed: () => _openApplicationSlipModal(app),
+                                          icon: const Icon(
+                                            Icons.receipt_rounded,
+                                            size: 14,
+                                            color: Colors.white,
+                                          ),
+                                          label: Text(
+                                            'Download Slip',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: primaryGreen,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(vertical: 10),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
+                        ],
                       ),
-                  ],
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ],
       ),
     );
@@ -2131,21 +2299,26 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => _openScholarshipDetailsModal(sch),
+              child: ElevatedButton.icon(
+                onPressed: () => _openApplySchemeModal(sch),
+                icon: const Icon(
+                  Icons.open_in_new_rounded,
+                  size: 16,
+                  color: Colors.white,
+                ),
+                label: Text(
+                  'Apply Scheme',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryGreen,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(11),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                ),
-                child: Text(
-                  'View Details & Apply',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
             ),
@@ -2310,6 +2483,395 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
   // ==========================================
   // MODALS & DIALOGS
   // ==========================================
+  // ==========================================
+  // APPLY SCHEME OPTIONS & OFFICIAL PORTAL MODALS
+  // ==========================================
+  void _openApplySchemeModal(Map<String, dynamic> sch) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Container(
+              padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: primaryGreen.withAlpha(20),
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Text(
+                      sch['boardTag'] as String,
+                      style: GoogleFonts.poppins(fontSize: 10.5, fontWeight: FontWeight.bold, color: primaryGreen),
+                    ),
+                  ),
+                  Text(
+                    sch['amount'] as String,
+                    style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold, color: goldAccent),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              Text(
+                sch['title'] as String,
+                style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                sch['provider'] as String,
+                style: GoogleFonts.poppins(fontSize: 11.5, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 18),
+
+              // Option 1: Fill Interactive Form in App
+              InkWell(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openScholarshipApplicationFormModal(sch);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: primaryGreen.withAlpha(12),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: primaryGreen, width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: const BoxDecoration(
+                          color: primaryGreen,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.assignment_turned_in_rounded, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Fill Application Form in App',
+                              style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: primaryGreen),
+                            ),
+                            Text(
+                              'Auto-attach verified Vault documents, CGPA & sync live 7-Stage Tracker',
+                              style: GoogleFonts.poppins(fontSize: 10.5, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: primaryGreen),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Option 2: Open Official Portal Website
+              InkWell(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openOfficialPortalWebView(sch);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: goldLight,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: goldAccent, width: 1.2),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: const BoxDecoration(
+                          color: goldAccent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.language_rounded, color: primaryGreen, size: 20),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Open Official Website Portal',
+                              style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: primaryGreen),
+                            ),
+                            Text(
+                              'Launch ${(sch['portalUrl'] as String?) ?? 'MahaDBT / NSP Site'} with auto-copy PRN & credentials',
+                              style: GoogleFonts.poppins(fontSize: 10.5, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: goldAccent),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Option 3: View Full Scheme Overview
+              InkWell(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openScholarshipDetailsModal(sch);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.info_outline_rounded, color: primaryGreen, size: 20),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'View Scheme Overview & Guidelines',
+                              style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                            ),
+                            Text(
+                              'Read full eligibility rules, criteria & required document checklists',
+                              style: GoogleFonts.poppins(fontSize: 10.5, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        ),
+      ),
+    );
+  },
+);
+}
+
+  void _openOfficialPortalWebView(Map<String, dynamic> sch) {
+    final portalUrl = (sch['portalUrl'] as String?) ?? 'https://mahadbt.maharashtra.gov.in/';
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          insetPadding: const EdgeInsets.all(16),
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 580),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Official Government Portal',
+                            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: primaryGreen),
+                          ),
+                          Text(
+                            portalUrl,
+                            style: GoogleFonts.poppins(fontSize: 10.5, color: AppColors.textSecondary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const Divider(),
+                const SizedBox(height: 6),
+
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: goldLight,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: goldAccent),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.key_rounded, color: primaryGreen, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'PRN: ${widget.studentId} • Vault Verified ✓',
+                          style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: primaryGreen),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('PRN & Credentials copied to clipboard!'), backgroundColor: primaryGreen),
+                          );
+                        },
+                        icon: const Icon(Icons.copy_rounded, size: 12),
+                        label: Text('Copy', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.public_rounded, size: 48, color: primaryGreen),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Connecting to ${sch['boardTag']}',
+                          style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Official portal link:\n$portalUrl',
+                          style: GoogleFonts.poppins(fontSize: 11.5, color: AppColors.textSecondary),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.green[100],
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.lock_rounded, size: 12, color: primaryGreen),
+                              const SizedBox(width: 6),
+                              Text(
+                                '256-Bit SSL Encrypted Govt Site',
+                                style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: primaryGreen),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _openScholarshipApplicationFormModal(sch);
+                        },
+                        icon: const Icon(Icons.assignment_outlined, size: 14, color: primaryGreen),
+                        label: Text('Fill Form in App', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: primaryGreen)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: primaryGreen),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Opening ${sch['boardTag']} official website ($portalUrl)...'),
+                              backgroundColor: primaryGreen,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.open_in_browser_rounded, size: 14, color: Colors.white),
+                        label: Text('Launch Browser', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryGreen,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _openScholarshipDetailsModal(Map<String, dynamic> sch) {
     showModalBottomSheet(
       context: context,
@@ -2536,15 +3098,15 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
                     child: ElevatedButton.icon(
                       onPressed: () {
                         Navigator.pop(context);
-                        _applyForScholarship(sch);
+                        _openScholarshipApplicationFormModal(sch);
                       },
                       icon: const Icon(
-                        Icons.send_rounded,
+                        Icons.edit_note_rounded,
                         color: Colors.white,
-                        size: 18,
+                        size: 20,
                       ),
                       label: Text(
-                        'Apply Now via MahaDBT / MSBTE Vault',
+                        'Fill Official Application Form',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -2569,89 +3131,603 @@ class _ScholarshipScreenState extends State<ScholarshipScreen>
     );
   }
 
-  void _applyForScholarship(Map<String, dynamic> sch) {
-    final exists = _myApplications.any((a) => a['id'] == sch['id']);
-    if (exists) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'You have already applied for this scholarship scheme!',
+  Future<void> _handleExternalWebsiteScholarship(Map<String, dynamic> sch) async {
+    final String urlStr = sch['portalUrl'] ?? sch['externalWebsiteUrl'] ?? 'https://mahadbt.maharashtra.gov.in';
+    final String websiteName = sch['externalWebsiteName'] ?? sch['boardTag'] ?? 'Official Portal';
+    final String websiteStatus = sch['externalWebsiteStatus'] ?? 'Portal Active & Accepting Applications';
+    final String nowStr = '${DateTime.now().day} Sep 2026, 11:14 AM';
+
+    // 1. Log visit to backend API
+    ApiService.logExternalWebsiteVisit(
+      studentId: 101,
+      scholarshipId: sch['id'] is int ? sch['id'] : 1,
+      websiteName: websiteName,
+      websiteUrl: urlStr,
+    );
+
+    // 2. Add or update in local My Applications list
+    setState(() {
+      final existingIdx = _myApplications.indexWhere((a) => a['title'] == sch['title']);
+      if (existingIdx >= 0) {
+        _myApplications[existingIdx]['lastOpenedDate'] = nowStr;
+        _myApplications[existingIdx]['externalWebsiteStatus'] = websiteStatus;
+      } else {
+        _myApplications.insert(0, {
+          'id': 'EXT-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+          'title': sch['title'],
+          'provider': sch['provider'],
+          'amount': sch['amount'],
+          'appliedDate': nowStr,
+          'application_status': 'External Portal Visited',
+          'applicationMode': 'EXTERNAL_WEBSITE',
+          'externalWebsiteName': websiteName,
+          'externalWebsiteUrl': urlStr,
+          'externalWebsiteStatus': websiteStatus,
+          'lastOpenedDate': nowStr,
+          'statusColor': const Color(0xFF2563EB),
+          'remarks': 'User redirected to official website portal ($websiteName) to complete application.',
+        });
+      }
+    });
+
+    // 3. Try launching browser
+    try {
+      final uri = Uri.parse(urlStr);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    // 4. Display External Website Modal in-app
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        contentPadding: const EdgeInsets.all(24),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.open_in_new_rounded, color: Color(0xFF2563EB), size: 28),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'External Website Portal',
+                        style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: primaryGreen),
+                      ),
+                      Text(
+                        websiteName,
+                        style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            Text(
+              sch['title'] ?? '',
+              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Official Website Name:', style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary)),
+                      Flexible(
+                        child: Text(websiteName, textAlign: TextAlign.right, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: primaryGreen)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Website Status:', style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(6)),
+                        child: Text(websiteStatus, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF15803D))),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Last Opened Date:', style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary)),
+                      Text(nowStr, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Complete your scholarship application process on the official portal. Application progress and website visits are tracked automatically inside the app.',
+              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[700]),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: () async {
+                  try {
+                    final uri = Uri.parse(urlStr);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  } catch (_) {}
+                },
+                icon: const Icon(Icons.launch_rounded, color: Colors.white, size: 18),
+                label: Text(
+                  'Open Website Button',
+                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openScholarshipApplicationFormModal(Map<String, dynamic> sch) {
+    final String mode = sch['applicationMode'] ??
+        (sch['portalUrl'] != null &&
+                (sch['portalUrl'].toString().contains('mahadbt') ||
+                    sch['portalUrl'].toString().contains('scholarships.gov') ||
+                    sch['portalUrl'].toString().contains('tatatrusts'))
+            ? 'EXTERNAL_WEBSITE'
+            : 'IN_APP');
+
+    if (mode == 'EXTERNAL_WEBSITE') {
+      _handleExternalWebsiteScholarship(sch);
+      return;
+    }
+
+    final existingApp = _myApplications.firstWhere(
+      (a) => a['title'] == sch['title'] || a['id'] == sch['id'],
+      orElse: () => {},
+    );
+
+    if (existingApp.isNotEmpty &&
+        existingApp['application_status'] != 'Draft' &&
+        existingApp['application_status'] != 'In Progress') {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: primaryGreen, size: 24),
+              const SizedBox(width: 8),
+              Text(
+                'Already Submitted',
+                style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
-          backgroundColor: Colors.amber,
+          content: Text(
+            'You have already submitted an application for "${sch['title']}". Status: ${existingApp['application_status']}. Form is locked for editing.',
+            style: GoogleFonts.poppins(fontSize: 12.5, color: AppColors.textSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Close', style: GoogleFonts.poppins(color: Colors.grey[700])),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _tabController.animateTo(2);
+                setState(() {
+                  _expandedAppId = existingApp['id'] as String?;
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryGreen,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: Text('Go to Tracker', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
         ),
       );
       return;
     }
 
-    setState(() {
-      _myApplications.add({
-        'id': 'MAHA-2026-${1000 + _myApplications.length * 111}',
-        'title': sch['title'],
-        'provider': sch['provider'],
-        'amount': sch['amount'],
-        'appliedDate': 'Just Now',
-        'status': 'Submitted',
-        'statusColor': primaryGreen,
-        'stageIndex': 1, // Stage 2: Submitted
-        'bankAccount': 'HDFC Bank •••• 4892 (Verified)',
-        'disbursedDate': 'Under Scrutiny',
-        'txnId': 'Pending Approval',
-        'feeOffset': sch['feeImpactText'],
-        'boardTag': sch['boardTag'],
-        'stepsDetail': [
-          {
-            'name': 'Draft Created',
-            'time': 'Just Now',
-            'status': 'Completed',
-            'by': 'Applicant',
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ScholarshipApplyStepperScreen(
+          scholarshipName: (sch['title'] ?? sch['scholarship_name'] ?? 'MSBTE Merit Scholarship') as String,
+          scholarshipAmount: (sch['amount'] ?? '₹25,000') as String,
+          studentId: widget.studentId,
+          studentName: widget.userName,
+          initialDraft: existingApp.isNotEmpty ? existingApp : null,
+          isEditable: true,
+          applicationStatus: existingApp['application_status'] ?? 'Draft',
+          onDraftSaved: (draftData) {
+            setState(() {
+              final idx = _myApplications.indexWhere((a) => a['title'] == sch['title']);
+              if (idx >= 0) {
+                _myApplications[idx]['application_status'] = 'Draft';
+                _myApplications[idx]['formData'] = draftData['formData'];
+              } else {
+                _myApplications.insert(0, {
+                  'id': 'DRAFT-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+                  'title': sch['title'],
+                  'provider': sch['provider'],
+                  'amount': sch['amount'],
+                  'appliedDate': DateTime.now().toIso8601String(),
+                  'application_status': 'Draft',
+                  'statusColor': const Color(0xFF6B7280),
+                  'remarks': 'Draft application saved. Ready to resume.',
+                  'formData': draftData['formData'],
+                });
+              }
+            });
           },
-          {
-            'name': 'Application Submitted on Portal',
-            'time': 'Just Now',
-            'status': 'Completed',
-            'by': 'Applicant',
+          onSubmitted: (subData) {
+            setState(() {
+              final idx = _myApplications.indexWhere((a) => a['title'] == sch['title']);
+              if (idx >= 0) {
+                _myApplications[idx]['application_status'] = 'Submitted';
+                _myApplications[idx]['formData'] = subData['formData'];
+              } else {
+                _myApplications.insert(0, {
+                  'id': 'SCH-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+                  'title': sch['title'],
+                  'provider': sch['provider'],
+                  'amount': sch['amount'],
+                  'appliedDate': DateTime.now().toIso8601String(),
+                  'application_status': 'Submitted',
+                  'statusColor': const Color(0xFF2563EB),
+                  'remarks': 'Application submitted directly inside app.',
+                  'formData': subData['formData'],
+                });
+              }
+            });
           },
-          {
-            'name': 'Institute Verification',
-            'time': 'Scheduled',
-            'status': 'Pending',
-            'by': 'Campus Officer',
-          },
-          {
-            'name': 'Board Under Review',
-            'time': 'Scheduled',
-            'status': 'Pending',
-            'by': 'Board Desk',
-          },
-          {
-            'name': 'Final Approval',
-            'time': 'Scheduled',
-            'status': 'Pending',
-            'by': 'Sanction Board',
-          },
-          {
-            'name': 'Fund Release Order',
-            'time': 'Scheduled',
-            'status': 'Pending',
-            'by': 'Treasury',
-          },
-          {
-            'name': 'Bank Credit',
-            'time': 'Scheduled',
-            'status': 'Pending',
-            'by': 'Bank Treasury',
-          },
-        ],
-      });
-      _tabController.animateTo(2); // Switch to Tracker Tab
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Application for ${sch['title']} submitted successfully with Vault Documents!',
         ),
-        backgroundColor: primaryGreen,
+      ),
+    );
+  }
+
+  void _openSubmittedFormDetailsModal(Map<String, dynamic> app) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          maxChildSize: 0.95,
+          minChildSize: 0.5,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              padding: const EdgeInsets.all(22),
+              child: ListView(
+                controller: scrollController,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 45,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Submitted Application Record',
+                        style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: primaryGreen.withAlpha(20),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          app['id'] as String,
+                          style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: primaryGreen),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  Text(app['title'] as String, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold)),
+                  Text(app['provider'] as String, style: GoogleFonts.poppins(fontSize: 11.5, color: AppColors.textSecondary)),
+                  const SizedBox(height: 16),
+
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Applicant Credentials', style: GoogleFonts.poppins(fontSize: 12.5, fontWeight: FontWeight.bold, color: primaryGreen)),
+                        const Divider(height: 14),
+                        _buildReceiptDetailRow('Applicant Name:', (app['applicantName'] as String?) ?? widget.userName),
+                        _buildReceiptDetailRow('Student ID / PRN:', widget.studentId),
+                        _buildReceiptDetailRow('Academic Program:', (app['course'] as String?) ?? 'Degree 3rd Year'),
+                        _buildReceiptDetailRow('Submitted CGPA:', '${(app['cgpa'] as String?) ?? '8.5'} / 10'),
+                        _buildReceiptDetailRow('Annual Family Income:', '₹${(app['annualIncome'] as String?) ?? '3,50,000'}'),
+                        _buildReceiptDetailRow('Category:', (app['category'] as String?) ?? 'OPEN / EWS'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Statement of Purpose (SOP)', style: GoogleFonts.poppins(fontSize: 12.5, fontWeight: FontWeight.bold, color: primaryGreen)),
+                        const SizedBox(height: 6),
+                        Text(
+                          (app['sop'] as String?) ?? 'Submitted for undergraduate tuition support under MahaDBT guidelines.',
+                          style: GoogleFonts.poppins(fontSize: 11.5, color: AppColors.textSecondary, height: 1.4),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: emeraldAccent.withAlpha(60)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.folder_special_rounded, color: primaryGreen, size: 24),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Digital Vault Attached Documents',
+                                style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: primaryGreen),
+                              ),
+                              Text(
+                                '${app['attachedDocsCount'] ?? 5} Verified Documents attached (Marksheet, Income Proof, Aadhaar, Domicile, Bank Passbook)',
+                                style: GoogleFonts.poppins(fontSize: 10.5, color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _openApplicationSlipModal(app);
+                      },
+                      icon: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 18),
+                      label: Text('View & Download Receipt Slip', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryGreen,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _openApplicationSlipModal(Map<String, dynamic> app) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: Container(
+            padding: const EdgeInsets.all(22),
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.verified_rounded, color: primaryGreen, size: 24),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Official Acknowledgement',
+                          style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const Divider(),
+                const SizedBox(height: 8),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: primaryGreen.withAlpha(15),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: primaryGreen.withAlpha(50)),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'MAHARASHTRA STATE SCHOLARSHIP PORTAL',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: primaryGreen,
+                          letterSpacing: 0.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        app['title'] as String,
+                        style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                      Text(
+                        app['provider'] as String,
+                        style: GoogleFonts.poppins(fontSize: 10.5, color: AppColors.textSecondary),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                _buildReceiptDetailRow('Application Reference ID:', app['id'] as String),
+                _buildReceiptDetailRow('Applicant Name:', (app['applicantName'] as String?) ?? widget.userName),
+                _buildReceiptDetailRow('Student PRN:', widget.studentId),
+                _buildReceiptDetailRow('Submission Date:', app['appliedDate'] as String),
+                _buildReceiptDetailRow('Scholarship Grant:', app['amount'] as String),
+                _buildReceiptDetailRow('Disbursal Target:', app['bankAccount'] as String),
+                _buildReceiptDetailRow('Current Status:', app['status'] as String),
+
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.qr_code_2_rounded, size: 50, color: Colors.grey[800]),
+                      const SizedBox(height: 4),
+                      Text(
+                        'VERIFIED BY MAHADBT & MSBTE DIGITAL SEAL',
+                        style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey[700]),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Official Confirmation Slip downloaded to device storage!'),
+                          backgroundColor: primaryGreen,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.download_rounded, color: Colors.white, size: 18),
+                    label: Text(
+                      'Download Official Slip PDF',
+                      style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryGreen,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReceiptDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[600])),
+          Flexible(
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -5525,8 +6601,6 @@ ${widget.userName}''',
 }
 }
 
-
-
 // ============================================================================
 // REAL WHATSAPP CHAT PREVIEW SCREEN WITH REAL PDF & RECEIPT DATA
 // ============================================================================
@@ -5765,7 +6839,7 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
 
                   // REAL RECEIPT DATA CAPTION
                   Text(
-                    widget.captionText,
+                    'MSBTE Scholarship Sanction Receipt & Fee Disbursal Certificate',
                     style: GoogleFonts.poppins(
                       fontSize: 11.5,
                       color: Colors.black87,

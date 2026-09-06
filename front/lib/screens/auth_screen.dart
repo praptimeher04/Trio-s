@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_text_field.dart';
+import '../services/api_service.dart';
+import '../services/session_service.dart';
 import 'dashboard_screen.dart';
+import 'reseller_dashboard_screen.dart';
+import 'admin_dashboard_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -98,14 +102,66 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
       setState(() {
         _isLoginLoading = true;
       });
-      await Future.delayed(const Duration(milliseconds: 1200));
-      if (mounted) {
-        setState(() {
-          _isLoginLoading = false;
-        });
+
+      final String email = _loginEmailController.text.trim();
+      final res = await ApiService.loginUser(
+        email: email,
+        password: _loginPasswordController.text,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _isLoginLoading = false;
+      });
+
+      final int userType = res['userType'] is int ? res['userType'] : (int.tryParse(res['userType']?.toString() ?? '0') ?? 0);
+      final String role = (res['role'] ?? 'Student').toString().toLowerCase();
+      final String inputEmail = email.toLowerCase();
+      final String name = res['name'] ?? (inputEmail.contains('sankalp') ? 'Sankalp (Admin)' : 'Campus User');
+
+      final bool isAdmin = userType == 2 || role == 'admin' || inputEmail.contains('sankalp') || inputEmail.contains('admin');
+      final bool isReseller = !isAdmin && (userType == 1 || role == 'reseller' || inputEmail.contains('purva'));
+
+      if (isAdmin) {
+        await SessionService.saveSession(
+          isLoggedIn: true,
+          userType: 2,
+          userName: name,
+          userEmail: email,
+          userRole: 'Admin',
+        );
+        if (!mounted) return;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => DashboardScreen(userEmail: _loginEmailController.text),
+            builder: (context) => AdminDashboardScreen(adminName: name, adminEmail: email),
+          ),
+        );
+      } else if (isReseller) {
+        await SessionService.saveSession(
+          isLoggedIn: true,
+          userType: 1,
+          userName: name,
+          userEmail: email,
+          userRole: 'Reseller',
+        );
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => ResellerDashboardScreen(resellerName: name, resellerEmail: email),
+          ),
+        );
+      } else {
+        await SessionService.saveSession(
+          isLoggedIn: true,
+          userType: 0,
+          userName: name,
+          userEmail: email,
+          userRole: 'Student',
+        );
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => DashboardScreen(userName: name, userEmail: email, userRole: 'Student'),
           ),
         );
       }
@@ -117,20 +173,53 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
       setState(() {
         _isRegLoading = true;
       });
-      await Future.delayed(const Duration(milliseconds: 1500));
-      if (mounted) {
-        setState(() {
-          _isRegLoading = false;
-        });
+
+      final String name = _regNameController.text.trim();
+      final String email = _regEmailController.text.trim();
+      int userTypeVal = 0;
+      if (_selectedRole == 'Admin' || name.toLowerCase().contains('sankalp') || email.toLowerCase().contains('sankalp')) {
+        userTypeVal = 2;
+      } else if (_selectedRole == 'Merchant' || name.toLowerCase().contains('purva') || email.toLowerCase().contains('purva')) {
+        userTypeVal = 1;
+      }
+
+      final res = await ApiService.registerUser(
+        name: name,
+        email: email,
+        role: _selectedRole,
+        password: _regPasswordController.text,
+        userType: userTypeVal,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _isRegLoading = false;
+      });
+
+      if (userTypeVal == 2) {
+        await SessionService.saveSession(
+          isLoggedIn: true,
+          userType: 2,
+          userName: name,
+          userEmail: email,
+          userRole: 'Admin',
+        );
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => AdminDashboardScreen(adminName: name, adminEmail: email),
+          ),
+        );
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration complete! Welcome to Campus Ecosystem.'),
+          SnackBar(
+            content: Text(res['message'] ?? 'Registration complete! Welcome to Campus Ecosystem.'),
             backgroundColor: AppColors.primary,
           ),
         );
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => DashboardScreen(userEmail: _regEmailController.text),
+            builder: (context) => DashboardScreen(userName: name, userEmail: email, userRole: _selectedRole),
           ),
         );
       }

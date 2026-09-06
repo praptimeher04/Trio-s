@@ -4,12 +4,11 @@ import '../theme/app_theme.dart';
 import '../widgets/feature_modal.dart';
 import '../services/session_service.dart';
 import '../services/api_service.dart';
-import 'login_screen.dart';
 import 'profile_screen.dart';
+import 'scholarship_screen.dart';
 import 'product_details_screen.dart';
 import 'chat_screen.dart';
 import 'cart_screen.dart';
-import 'reseller_dashboard_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String userName;
@@ -142,10 +141,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 3 Clean Tabs: Home, Marketplace, Profile
+    // 4 Primary Navigation Tabs: Home, Marketplace, Scholarships, Profile
     final List<Widget> pages = [
       _buildHomeDashboardView(),
       _buildMarketplaceView(),
+      ScholarshipScreen(userName: _displayName),
       ProfileScreen(
         userName: _displayName,
         userEmail: widget.userEmail,
@@ -190,19 +190,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
               )
             : _currentBottomNavIndex == 2
                 ? Text(
-                    'My Profile',
+                    'Scholarship Hub',
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: AppColors.textPrimary,
                     ),
                   )
-                : GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _currentBottomNavIndex = 2; // Switch to Profile tab
-                      });
-                    },
+                : _currentBottomNavIndex == 3
+                    ? Text(
+                        'My Profile',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      )
+                    : GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _currentBottomNavIndex = 3; // Switch to Profile tab
+                          });
+                        },
                     child: Row(
                       children: [
                         CircleAvatar(
@@ -332,40 +341,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             IconButton(
-              tooltip: 'Switch to Reseller Panel (Type 1)',
-              icon: const Icon(Icons.storefront_rounded, color: Color(0xFF0B6E4F), size: 24),
-              onPressed: () async {
-                await SessionService.saveSession(
-                  isLoggedIn: true,
-                  userType: 1,
-                  userName: _displayName,
-                  userEmail: widget.userEmail,
-                  userRole: 'Reseller',
-                );
-                if (context.mounted) {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => ResellerDashboardScreen(
-                        resellerName: _displayName,
-                        resellerEmail: widget.userEmail,
-                      ),
-                    ),
-                  );
-                }
-              },
-            ),
-            IconButton(
               tooltip: 'Logout',
               icon: const Icon(Icons.logout_rounded, color: AppColors.textSecondary, size: 22),
               onPressed: () async {
                 await SessionService.clearSession();
                 if (context.mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(
-                      builder: (context) => const LoginScreen(),
-                    ),
-                    (route) => false,
-                  );
+                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
                 }
               },
             ),
@@ -413,6 +394,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.storefront_rounded),
               label: 'Marketplace',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.workspace_premium_rounded),
+              label: 'Scholarships',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_rounded),
@@ -1259,9 +1244,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- MAIN FEATURE GRID (Marketplace, Wallet, Savings, Fee Tracker) ---
+  // --- MAIN FEATURE GRID (Scholarships, Marketplace, Wallet, Savings, Fee Tracker) ---
   Widget _buildMainFeatureGrid(BuildContext context) {
     final List<Map<String, dynamic>> features = [
+      {
+        'title': 'Scholarships',
+        'subtitle': 'Grants & Disbursal Tracker',
+        'icon': Icons.workspace_premium_rounded,
+        'color': const Color(0xFF0D5C3A),
+        'onTap': () => setState(() => _currentBottomNavIndex = 2),
+      },
       {
         'title': 'Marketplace',
         'subtitle': 'Buy & Sell Textbooks',

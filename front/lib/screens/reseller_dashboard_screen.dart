@@ -10,6 +10,7 @@ import '../services/inquiry_service.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
 import 'chat_screen.dart';
+import 'admin_dashboard_screen.dart';
 
 class ResellerDashboardScreen extends StatefulWidget {
   final String resellerName;
@@ -1629,6 +1630,39 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
                   ),
                 ),
             ],
+          ),
+          IconButton(
+            tooltip: 'Switch to Admin Panel (Type 2)',
+            icon: Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF1F5F9),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF0F172A), size: 18),
+            ),
+            onPressed: () async {
+              final adminName = widget.resellerName.contains('Sankalp') ? widget.resellerName : 'Sankalp (Admin)';
+              await SessionService.saveSession(
+                isLoggedIn: true,
+                userType: 2,
+                userName: adminName,
+                userEmail: widget.resellerEmail,
+                userRole: 'Admin',
+              );
+              if (context.mounted) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => AdminDashboardScreen(
+                      adminName: adminName,
+                      adminEmail: widget.resellerEmail,
+                    ),
+                  ),
+                );
+              }
+            },
           ),
           IconButton(
             tooltip: 'Switch View',

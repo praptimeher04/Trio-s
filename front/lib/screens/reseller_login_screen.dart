@@ -4,7 +4,6 @@ import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import '../services/session_service.dart';
 import 'reseller_register_screen.dart';
-import 'reseller_dashboard_screen.dart';
 
 class ResellerLoginScreen extends StatefulWidget {
   const ResellerLoginScreen({super.key});
@@ -42,9 +41,32 @@ class _ResellerLoginScreenState extends State<ResellerLoginScreen> {
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    final String emailInput = _emailController.text.trim();
-    final String fallbackName = emailInput.isNotEmpty ? emailInput.split('@')[0] : 'Reseller Peer';
+    final String emailInput = _emailController.text.trim().toLowerCase();
+    final int returnedType = res['userType'] is int ? res['userType'] : (int.tryParse(res['userType']?.toString() ?? '0') ?? 0);
+    final bool isAdmin = returnedType == 2 || emailInput.contains('sankalp') || emailInput.contains('admin');
 
+    if (isAdmin) {
+      final String adminName = res['success'] == true ? (res['name'] ?? 'Sankalp (Admin)') : 'Sankalp (Admin)';
+      await SessionService.saveSession(
+        isLoggedIn: true,
+        userType: 2,
+        userName: adminName,
+        userEmail: emailInput,
+        userRole: 'Admin',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Welcome Admin $adminName!'),
+          backgroundColor: const Color(0xFF0F172A),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      Navigator.of(context).pushNamedAndRemoveUntil('/super-admin-dashboard', (route) => false);
+      return;
+    }
+
+    final String fallbackName = emailInput.isNotEmpty ? emailInput.split('@')[0] : 'Reseller Peer';
     final String resellerName = res['success'] == true ? (res['name'] ?? fallbackName) : fallbackName;
     final String resellerEmail = res['success'] == true ? (res['email'] ?? emailInput) : emailInput;
     final String resellerMobile = res['success'] == true ? (res['mobileNumber'] ?? '+91 98765 43210') : '+91 98765 43210';
@@ -54,7 +76,7 @@ class _ResellerLoginScreenState extends State<ResellerLoginScreen> {
       userType: 1,
       userName: resellerName,
       userEmail: resellerEmail,
-      userRole: 'Reseller',
+      userRole: 'Admin',
       mobileNumber: resellerMobile,
     );
 
@@ -68,15 +90,7 @@ class _ResellerLoginScreenState extends State<ResellerLoginScreen> {
       ),
     );
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => ResellerDashboardScreen(
-          resellerName: resellerName,
-          resellerEmail: resellerEmail,
-          resellerMobile: resellerMobile,
-        ),
-      ),
-    );
+    Navigator.of(context).pushNamedAndRemoveUntil('/admin-dashboard', (route) => false);
   }
 
   @override

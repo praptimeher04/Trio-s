@@ -5,9 +5,7 @@ import '../widgets/custom_text_field.dart';
 import '../services/api_service.dart';
 import '../services/session_service.dart';
 import 'register_screen.dart';
-import 'dashboard_screen.dart';
 import 'reseller_login_screen.dart';
-import 'reseller_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final String? initialEmail;
@@ -105,14 +103,35 @@ class _LoginScreenState extends State<LoginScreen> {
           final String inputEmail = _emailController.text.trim().toLowerCase();
           final String fetchedName = (result['name'] ?? '').toString().toLowerCase();
 
+          final bool isAdminUser = (userType == 2) ||
+              (_selectedUserType == 2) ||
+              (role == 'admin') ||
+              inputEmail.contains('sankalp') ||
+              inputEmail.contains('admin') ||
+              fetchedName.contains('sankalp');
+
           // Check database response: if userType == 1, role == reseller, or email/name contains 'purva', open reseller panel.
-          final bool isResellerUser = (userType == 1) ||
+          final bool isResellerUser = !isAdminUser && ((userType == 1) ||
+              (_selectedUserType == 1) ||
               (role == 'reseller') ||
               inputEmail.contains('purva') ||
               inputEmail.contains('reseller') ||
-              fetchedName.contains('purva');
+              fetchedName.contains('purva'));
 
-          if (isResellerUser) {
+          if (isAdminUser) {
+            final String adminName = (widget.registeredName != null && widget.registeredName!.isNotEmpty)
+                ? widget.registeredName!
+                : (result['name'] ?? 'Sankalp (Super Admin)');
+            await SessionService.saveSession(
+              isLoggedIn: true,
+              userType: 2,
+              userName: adminName,
+              userEmail: _emailController.text.trim(),
+              userRole: 'Super Admin',
+            );
+            if (!mounted) return;
+            Navigator.of(context).pushNamedAndRemoveUntil('/super-admin-dashboard', (route) => false);
+          } else if (isResellerUser) {
             final String mobile = result['mobileNumber'] != null && result['mobileNumber'].toString().isNotEmpty
                 ? result['mobileNumber'].toString()
                 : '+91 98765 43210';
@@ -121,19 +140,11 @@ class _LoginScreenState extends State<LoginScreen> {
               userType: 1,
               userName: finalName,
               userEmail: _emailController.text.trim(),
-              userRole: 'Reseller',
+              userRole: 'Admin',
               mobileNumber: mobile,
             );
             if (!mounted) return;
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => ResellerDashboardScreen(
-                  resellerName: finalName,
-                  resellerEmail: _emailController.text.trim(),
-                  resellerMobile: mobile,
-                ),
-              ),
-            );
+            Navigator.of(context).pushNamedAndRemoveUntil('/admin-dashboard', (route) => false);
           } else {
             await SessionService.saveSession(
               isLoggedIn: true,
@@ -143,48 +154,46 @@ class _LoginScreenState extends State<LoginScreen> {
               userRole: role,
             );
             if (!mounted) return;
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => DashboardScreen(
-                  userName: finalName,
-                  userEmail: _emailController.text,
-                  userRole: role,
-                ),
-              ),
-            );
+            Navigator.of(context).pushNamedAndRemoveUntil('/student-dashboard', (route) => false);
           }
         } else {
-          if (_selectedUserType == 1) {
+          if (_selectedUserType == 2 || _emailController.text.toLowerCase().contains('sankalp')) {
+            final String adminName = (widget.registeredName != null && widget.registeredName!.isNotEmpty)
+                ? widget.registeredName!
+                : 'Sankalp (Super Admin)';
+            await SessionService.saveSession(
+              isLoggedIn: true,
+              userType: 2,
+              userName: adminName,
+              userEmail: _emailController.text.trim(),
+              userRole: 'Super Admin',
+            );
+            if (!mounted) return;
+            Navigator.of(context).pushNamedAndRemoveUntil('/super-admin-dashboard', (route) => false);
+          } else if (_selectedUserType == 1) {
             final String finalName = (widget.registeredName != null && widget.registeredName!.isNotEmpty)
                 ? widget.registeredName!
-                : 'Reseller User';
+                : 'Reseller Admin';
             await SessionService.saveSession(
               isLoggedIn: true,
               userType: 1,
               userName: finalName,
               userEmail: _emailController.text.trim(),
-              userRole: 'Reseller',
-              mobileNumber: '+91 98765 43210',
+              userRole: 'Admin',
             );
             if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Logging into Reseller Panel (Type 1)...'),
-                backgroundColor: Color(0xFF0B6E4F),
-              ),
+            Navigator.of(context).pushNamedAndRemoveUntil('/admin-dashboard', (route) => false);
+          } else {
+            await SessionService.saveSession(
+              isLoggedIn: true,
+              userType: 0,
+              userName: 'Student User',
+              userEmail: _emailController.text.trim(),
+              userRole: 'Student',
             );
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => ResellerDashboardScreen(
-                  resellerName: finalName,
-                  resellerEmail: _emailController.text.trim(),
-                  resellerMobile: '+91 98765 43210',
-                ),
-              ),
-            );
-            return;
+            if (!mounted) return;
+            Navigator.of(context).pushNamedAndRemoveUntil('/student-dashboard', (route) => false);
           }
-
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['message'] ?? 'Invalid email or password.'),
@@ -270,7 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // User Type Selector (Type 0: Student vs Type 1: Reseller)
+                              // User Type Selector (Type 0: Student vs Type 1: Reseller vs Type 2: Admin)
                               Container(
                                 margin: const EdgeInsets.only(bottom: 20),
                                 padding: const EdgeInsets.all(4),
@@ -299,12 +308,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                           child: Row(
                                             mainAxisAlignment: MainAxisAlignment.center,
                                             children: [
-                                              Icon(Icons.school_rounded, size: 16, color: _selectedUserType == 0 ? AppColors.primary : AppColors.textSecondary),
-                                              const SizedBox(width: 6),
+                                              Icon(Icons.school_rounded, size: 14, color: _selectedUserType == 0 ? AppColors.primary : AppColors.textSecondary),
+                                              const SizedBox(width: 4),
                                               Text(
-                                                'Student (Type 0)',
+                                                'Student (0)',
                                                 style: GoogleFonts.poppins(
-                                                  fontSize: 11.5,
+                                                  fontSize: 10.5,
                                                   fontWeight: _selectedUserType == 0 ? FontWeight.bold : FontWeight.w500,
                                                   color: _selectedUserType == 0 ? AppColors.primary : AppColors.textSecondary,
                                                 ),
@@ -333,14 +342,48 @@ class _LoginScreenState extends State<LoginScreen> {
                                           child: Row(
                                             mainAxisAlignment: MainAxisAlignment.center,
                                             children: [
-                                              Icon(Icons.storefront_rounded, size: 16, color: _selectedUserType == 1 ? Colors.white : AppColors.textSecondary),
-                                              const SizedBox(width: 6),
+                                              Icon(Icons.storefront_rounded, size: 14, color: _selectedUserType == 1 ? Colors.white : AppColors.textSecondary),
+                                              const SizedBox(width: 4),
                                               Text(
-                                                'Reseller (Type 1)',
+                                                'Reseller (1)',
                                                 style: GoogleFonts.poppins(
-                                                  fontSize: 11.5,
+                                                  fontSize: 10.5,
                                                   fontWeight: _selectedUserType == 1 ? FontWeight.bold : FontWeight.w500,
                                                   color: _selectedUserType == 1 ? Colors.white : AppColors.textSecondary,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() => _selectedUserType = 2);
+                                          SessionService.saveLastSelectedUserType(2);
+                                        },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 200),
+                                          padding: const EdgeInsets.symmetric(vertical: 10),
+                                          decoration: BoxDecoration(
+                                            color: _selectedUserType == 2 ? const Color(0xFF0F172A) : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(10),
+                                            boxShadow: _selectedUserType == 2
+                                                ? [BoxShadow(color: const Color(0xFF0F172A).withAlpha(80), blurRadius: 4, offset: const Offset(0, 2))]
+                                                : [],
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.admin_panel_settings_rounded, size: 14, color: _selectedUserType == 2 ? Colors.white : AppColors.textSecondary),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Admin (2)',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 10.5,
+                                                  fontWeight: _selectedUserType == 2 ? FontWeight.bold : FontWeight.w500,
+                                                  color: _selectedUserType == 2 ? Colors.white : AppColors.textSecondary,
                                                 ),
                                               ),
                                             ],

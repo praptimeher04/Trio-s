@@ -1,19 +1,12 @@
+// Campus Financial Ecosystem Entry Point
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme/app_theme.dart';
-<<<<<<< HEAD
-import 'screens/login_screen.dart';
-import 'screens/dashboard_screen.dart';
-import 'screens/reseller_dashboard_screen.dart';
-import 'services/session_service.dart';
-
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const CampusFinancialApp());
-=======
 import 'screens/register_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/reseller_dashboard_screen.dart';
+import 'screens/super_admin_dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,31 +17,45 @@ void main() async {
   final String userEmail = prefs.getString('user_email') ?? '';
   final String userName = prefs.getString('user_name') ?? 'Hitija Mhatre';
   final String userRole = prefs.getString('user_role') ?? 'Student';
+  final int userType = prefs.getInt('user_type') ?? 0;
 
-  Widget initialScreen;
+  String initialRoute = '/login';
+
   if (isLoggedIn) {
-    initialScreen = DashboardScreen(
-      userName: userName,
-      userEmail: userEmail,
-      userRole: userRole,
-    );
+    if (userType == 2) {
+      initialRoute = '/super-admin-dashboard';
+    } else if (userType == 1) {
+      initialRoute = '/admin-dashboard';
+    } else {
+      initialRoute = '/student-dashboard';
+    }
   } else if (isRegistered) {
-    initialScreen = LoginScreen(
-      initialEmail: userEmail,
-      registeredName: userName,
-    );
+    initialRoute = '/login';
   } else {
-    initialScreen = const RegisterScreen();
+    initialRoute = '/register';
   }
 
-  runApp(CampusFinancialApp(initialScreen: initialScreen));
->>>>>>> 573e9e486d9083ebe9d747949ef918ce377d0c1d
+  runApp(CampusFinancialApp(
+    initialRoute: initialRoute,
+    userName: userName,
+    userEmail: userEmail,
+    userRole: userRole,
+  ));
 }
 
 class CampusFinancialApp extends StatelessWidget {
-  final Widget initialScreen;
+  final String initialRoute;
+  final String userName;
+  final String userEmail;
+  final String userRole;
 
-  const CampusFinancialApp({super.key, required this.initialScreen});
+  const CampusFinancialApp({
+    super.key,
+    required this.initialRoute,
+    required this.userName,
+    required this.userEmail,
+    required this.userRole,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -56,51 +63,24 @@ class CampusFinancialApp extends StatelessWidget {
       title: 'Campus Pay & Finance',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-<<<<<<< HEAD
-      home: FutureBuilder<Map<String, dynamic>>(
-        future: SessionService.getSession(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              backgroundColor: Color(0xFFF8FAFC),
-              body: Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFF059669),
-                ),
-              ),
-            );
-          }
-
-          final session = snapshot.data;
-          final bool isLoggedIn = session?['isLoggedIn'] == true;
-          final int userType = session?['userType'] ?? 0;
-          final String userName = session?['userName'] ?? 'Hitija Mhatre';
-          final String userEmail = session?['userEmail'] ?? 'student@campus.edu';
-          final String userRole = session?['userRole'] ?? 'Student';
-          final String mobileNumber = session?['mobileNumber'] ?? '+91 98765 43210';
-
-          if (isLoggedIn) {
-            if (userType == 1) {
-              return ResellerDashboardScreen(
-                resellerName: userName,
-                resellerEmail: userEmail,
-                resellerMobile: mobileNumber,
-              );
-            } else {
-              return DashboardScreen(
-                userName: userName,
-                userEmail: userEmail,
-                userRole: userRole,
-              );
-            }
-          }
-
-          return const LoginScreen();
-        },
-      ),
-=======
-      home: initialScreen,
->>>>>>> 573e9e486d9083ebe9d747949ef918ce377d0c1d
+      initialRoute: initialRoute,
+      routes: {
+        '/login': (context) => LoginScreen(initialEmail: userEmail),
+        '/register': (context) => const RegisterScreen(),
+        '/student-dashboard': (context) => DashboardScreen(
+              userName: userName,
+              userEmail: userEmail,
+              userRole: userRole,
+            ),
+        '/admin-dashboard': (context) => ResellerDashboardScreen(
+              resellerName: userName,
+              resellerEmail: userEmail,
+            ),
+        '/super-admin-dashboard': (context) => SuperAdminDashboardScreen(
+              adminName: userName,
+              adminEmail: userEmail,
+            ),
+      },
     );
   }
 }

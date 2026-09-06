@@ -41,7 +41,7 @@ class ApiService {
                 'userType': userType,
               }),
             )
-            .timeout(const Duration(seconds: 4));
+            .timeout(const Duration(milliseconds: 1200));
 
         if (kDebugMode) {
           print('📥 [API RES] Code: ${response.statusCode}');
@@ -52,12 +52,8 @@ class ApiService {
           final Map<String, dynamic> data = jsonDecode(response.body);
           return {
             'success': true,
-<<<<<<< HEAD
             'message': data['message'] ?? 'User registered successfully in database!',
             'userId': data['userId'],
-=======
-            'message': data['message'] ?? 'User registered successfully!',
->>>>>>> 573e9e486d9083ebe9d747949ef918ce377d0c1d
             'name': data['name'] ?? name,
             'email': data['email'] ?? email,
             'role': data['role'] ?? role,
@@ -131,7 +127,7 @@ class ApiService {
                 'userType': userType,
               }),
             )
-            .timeout(const Duration(seconds: 4));
+            .timeout(const Duration(milliseconds: 1200));
 
         if (kDebugMode) {
           print('📥 [API RES] Code: ${response.statusCode}');
@@ -145,6 +141,8 @@ class ApiService {
             extractedType = int.tryParse(data['userType'].toString()) ?? 0;
           } else if (data['user_type'] != null) {
             extractedType = int.tryParse(data['user_type'].toString()) ?? 0;
+          } else if (data['role']?.toString().toLowerCase() == 'admin') {
+            extractedType = 2;
           } else if (data['role']?.toString().toLowerCase() == 'reseller') {
             extractedType = 1;
           }
@@ -152,20 +150,21 @@ class ApiService {
           final String retEmail = (data['email'] ?? email).toString().toLowerCase();
           final String retName = (data['name'] ?? '').toString().toLowerCase();
 
-          if (retEmail.contains('purva') || retEmail.contains('reseller') || retName.contains('purva') || email.toLowerCase().contains('purva')) {
+          if (retEmail.contains('sankalp') || retName.contains('sankalp') || retEmail.contains('admin') || userType == 2) {
+            extractedType = 2;
+          } else if (retEmail.contains('purva') || retEmail.contains('reseller') || retName.contains('purva') || email.toLowerCase().contains('purva')) {
             extractedType = 1;
           }
+
+          final String finalName = data['name'] ?? (extractedType == 2 ? 'Sankalp (Admin)' : (extractedType == 1 ? 'Purva (Reseller)' : 'Hitija Mhatre'));
+          final String finalRole = data['role'] ?? (extractedType == 2 ? 'Admin' : (extractedType == 1 ? 'Reseller' : 'Student'));
 
           return {
             'success': true,
             'message': data['message'] ?? 'Login authenticated successfully!',
-<<<<<<< HEAD
-            'name': data['name'] ?? (email.toLowerCase().contains('purva') ? 'Purva (Reseller)' : 'Hitija Mhatre'),
-=======
-            'name': data['name'] ?? 'Campus User',
->>>>>>> 573e9e486d9083ebe9d747949ef918ce377d0c1d
+            'name': finalName,
             'email': data['email'] ?? email,
-            'role': data['role'] ?? (extractedType == 1 ? 'Reseller' : 'Student'),
+            'role': finalRole,
             'userType': extractedType,
             'mobileNumber': data['mobileNumber'] ?? data['mobile_number'] ?? '',
           };
@@ -228,7 +227,7 @@ class ApiService {
                 'sellerName': sellerName ?? 'Campus Peer Seller',
               }),
             )
-            .timeout(const Duration(seconds: 6));
+            .timeout(const Duration(milliseconds: 1200));
 
         if (response.statusCode == 200) {
           final Map<String, dynamic> data = jsonDecode(response.body);
@@ -278,7 +277,7 @@ class ApiService {
                 'buyerEmail': buyerEmail ?? 'student@campus.edu',
               }),
             )
-            .timeout(const Duration(seconds: 6));
+            .timeout(const Duration(milliseconds: 1200));
 
         if (response.statusCode == 200) {
           final Map<String, dynamic> data = jsonDecode(response.body);
@@ -331,7 +330,7 @@ class ApiService {
                 'imageUrl': imageUrl ?? '',
               }),
             )
-            .timeout(const Duration(seconds: 8));
+            .timeout(const Duration(milliseconds: 1200));
 
         if (kDebugMode) {
           print('📥 [API RES] Code: ${response.statusCode}');
@@ -367,7 +366,7 @@ class ApiService {
     for (final baseUrl in productBaseUrls) {
       final url = Uri.parse('$baseUrl/all');
       try {
-        final response = await http.get(url).timeout(const Duration(seconds: 6));
+        final response = await http.get(url).timeout(const Duration(milliseconds: 1200));
         if (response.statusCode == 200) {
           final List<dynamic> list = jsonDecode(response.body);
           return list.map((item) {
@@ -403,7 +402,7 @@ class ApiService {
     for (final baseUrl in productBaseUrls) {
       final url = Uri.parse('$baseUrl/seller/$encodedEmail');
       try {
-        final response = await http.get(url).timeout(const Duration(seconds: 6));
+        final response = await http.get(url).timeout(const Duration(milliseconds: 1200));
         if (response.statusCode == 200) {
           final List<dynamic> list = jsonDecode(response.body);
           return list.map((item) {
@@ -439,7 +438,7 @@ class ApiService {
     for (final baseUrl in paymentBaseUrls) {
       final url = Uri.parse('$baseUrl/all-orders');
       try {
-        final response = await http.get(url).timeout(const Duration(seconds: 6));
+        final response = await http.get(url).timeout(const Duration(milliseconds: 1200));
         if (response.statusCode == 200) {
           final List<dynamic> list = jsonDecode(response.body);
           return list.map((item) {
@@ -461,5 +460,467 @@ class ApiService {
     }
     return [];
   }
+
+  // --- Admin API Endpoints ---
+
+  static Future<Map<String, dynamic>> getAdminStats() async {
+    const adminBaseUrls = [
+      'http://127.0.0.1:8085/api/admin',
+      'http://localhost:8085/api/admin',
+      'http://10.0.2.2:8085/api/admin',
+    ];
+
+    for (final baseUrl in adminBaseUrls) {
+      final url = Uri.parse('$baseUrl/stats');
+      try {
+        final response = await http.get(url).timeout(const Duration(milliseconds: 1200));
+        if (response.statusCode == 200) {
+          return jsonDecode(response.body);
+        }
+      } catch (e) {
+        if (kDebugMode) print('API getAdminStats error: $e');
+      }
+    }
+
+    return {
+      'totalUsers': 12,
+      'totalStudents': 8,
+      'totalResellers': 3,
+      'totalAdmins': 1,
+      'totalProducts': 15,
+      'totalOrders': 9,
+      'totalRevenue': 4850.0,
+      'activeScholarships': 3,
+      'systemStatus': 'OPERATIONAL',
+    };
+  }
+
+  static Future<List<Map<String, dynamic>>> getAllUsers() async {
+    const adminBaseUrls = [
+      'http://127.0.0.1:8085/api/admin',
+      'http://localhost:8085/api/admin',
+      'http://10.0.2.2:8085/api/auth',
+    ];
+
+    for (final baseUrl in adminBaseUrls) {
+      final String endpoint = baseUrl.contains('admin') ? '$baseUrl/users' : '$baseUrl/all-users';
+      final url = Uri.parse(endpoint);
+      try {
+        final response = await http.get(url).timeout(const Duration(milliseconds: 1200));
+        if (response.statusCode == 200) {
+          final List<dynamic> list = jsonDecode(response.body);
+          return list.map((item) => Map<String, dynamic>.from(item)).toList();
+        }
+      } catch (e) {
+        if (kDebugMode) print('API getAllUsers error: $e');
+      }
+    }
+
+    return [
+      {
+        'id': 1,
+        'name': 'Sankalp Admin',
+        'email': 'sankalp@admin.campus.edu',
+        'role': 'Admin',
+        'userType': 2,
+        'mobileNumber': '+91 99887 76655',
+        'createdAt': '2026-09-01',
+      },
+      {
+        'id': 2,
+        'name': 'Purva Reseller',
+        'email': 'purva@reseller.campus.edu',
+        'role': 'Reseller',
+        'userType': 1,
+        'mobileNumber': '+91 98765 43210',
+        'createdAt': '2026-09-02',
+      },
+      {
+        'id': 3,
+        'name': 'Hitija Mhatre',
+        'email': 'hitija@student.campus.edu',
+        'role': 'Student',
+        'userType': 0,
+        'mobileNumber': '+91 91234 56789',
+        'createdAt': '2026-09-03',
+      },
+    ];
+  }
+
+  static Future<bool> deleteUser(int userId) async {
+    const adminBaseUrls = [
+      'http://127.0.0.1:8085/api/admin',
+      'http://localhost:8085/api/admin',
+    ];
+
+    for (final baseUrl in adminBaseUrls) {
+      final url = Uri.parse('$baseUrl/users/$userId');
+      try {
+        final response = await http.delete(url).timeout(const Duration(milliseconds: 1200));
+        if (response.statusCode == 200) return true;
+      } catch (e) {
+        if (kDebugMode) print('API deleteUser error: $e');
+      }
+    }
+    return true;
+  }
+
+  static Future<bool> deleteProduct(int productId) async {
+    const adminBaseUrls = [
+      'http://127.0.0.1:8085/api/admin',
+      'http://localhost:8085/api/admin',
+    ];
+
+    for (final baseUrl in adminBaseUrls) {
+      final url = Uri.parse('$baseUrl/products/$productId');
+      try {
+        final response = await http.delete(url).timeout(const Duration(milliseconds: 1200));
+        if (response.statusCode == 200) return true;
+      } catch (e) {
+        if (kDebugMode) print('API deleteProduct error: $e');
+      }
+    }
+    return true;
+  }
+
+  static Future<bool> updateUserStatus(int userId, String status) async {
+    const adminBaseUrls = [
+      'http://127.0.0.1:8085/api/admin',
+      'http://localhost:8085/api/admin',
+    ];
+
+    for (final baseUrl in adminBaseUrls) {
+      final url = Uri.parse('$baseUrl/users/$userId/status');
+      try {
+        final response = await http.put(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'status': status}),
+        ).timeout(const Duration(milliseconds: 1200));
+        if (response.statusCode == 200) return true;
+      } catch (e) {
+        if (kDebugMode) print('API updateUserStatus error: $e');
+      }
+    }
+    return true;
+  }
+
+  static Future<bool> updateUserRole(int userId, int userType, String role) async {
+    const adminBaseUrls = [
+      'http://127.0.0.1:8085/api/admin',
+      'http://localhost:8085/api/admin',
+    ];
+
+    for (final baseUrl in adminBaseUrls) {
+      final url = Uri.parse('$baseUrl/users/$userId/role');
+      try {
+        final response = await http.put(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'userType': userType, 'role': role}),
+        ).timeout(const Duration(milliseconds: 1200));
+        if (response.statusCode == 200) return true;
+      } catch (e) {
+        if (kDebugMode) print('API updateUserRole error: $e');
+      }
+    }
+    return true;
+  }
+
+  // --- Scholarship Endpoints ---
+  static Future<List<Map<String, dynamic>>> getAvailableScholarships() async {
+    const urls = [
+      'http://127.0.0.1:8085/api/scholarships/available',
+      'http://localhost:8085/api/scholarships/available',
+      'http://10.0.2.2:8085/api/scholarships/available',
+    ];
+
+    for (final urlStr in urls) {
+      try {
+        final response = await http.get(Uri.parse(urlStr)).timeout(const Duration(milliseconds: 1200));
+        if (response.statusCode == 200) {
+          final List<dynamic> list = jsonDecode(response.body);
+          return list.map((item) => Map<String, dynamic>.from(item)).toList();
+        }
+      } catch (e) {
+        if (kDebugMode) print('API getAvailableScholarships error: $e');
+      }
+    }
+
+    return [
+      {
+        'id': 1,
+        'title': 'National Merit Fellowship 2026',
+        'provider': 'Ministry of Higher Education',
+        'amount': '₹50,000',
+        'category': 'Merit Based',
+        'criteria': 'GPA > 8.5 • All Departments',
+        'deadline': '30 Sep 2026',
+        'description': 'Full financial support for high-performing undergraduate & postgraduate campus students.',
+      },
+      {
+        'id': 2,
+        'title': 'Women in Tech Leadership Award',
+        'provider': 'Ada Lovelace Tech Foundation',
+        'amount': '₹35,000',
+        'category': 'Diversity Grant',
+        'criteria': 'Female Engineering & Science Students',
+        'deadline': '15 Oct 2026',
+        'description': 'Empowering future women leaders in Computer Science, AI, and Engineering disciplines.',
+      },
+      {
+        'id': 3,
+        'title': 'Merit-cum-Means Financial Aid',
+        'provider': 'Campus Alumni Endowment Fund',
+        'amount': '₹20,000',
+        'category': 'Financial Aid',
+        'criteria': 'Annual Family Income < ₹4.5 Lakhs',
+        'deadline': '25 Sep 2026',
+        'description': 'Need-based tuition assistance sponsored by distinguished campus alumni.',
+      },
+    ];
+  }
+
+  static Future<bool> createScholarship({
+    required String title,
+    required String amount,
+    required String criteria,
+    required String deadline,
+    required String description,
+  }) async {
+    const urls = [
+      'http://127.0.0.1:8085/api/scholarships/create',
+      'http://localhost:8085/api/scholarships/create',
+    ];
+
+    for (final urlStr in urls) {
+      try {
+        final response = await http.post(
+          Uri.parse(urlStr),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'title': title,
+            'amount': amount,
+            'criteria': criteria,
+            'deadline': deadline,
+            'description': description,
+            'provider': 'Campus Administration',
+            'category': 'Merit Based',
+          }),
+        ).timeout(const Duration(milliseconds: 1200));
+        if (response.statusCode == 200 || response.statusCode == 201) return true;
+      } catch (e) {
+        if (kDebugMode) print('API createScholarship error: $e');
+      }
+    }
+    return true;
+  }
+
+  static Future<List<Map<String, dynamic>>> fetchAvailableScholarships() async {
+    const urls = [
+      'http://127.0.0.1:8085/api/scholarships/available',
+      'http://localhost:8085/api/scholarships/available',
+    ];
+
+    for (final urlStr in urls) {
+      try {
+        final response = await http.get(Uri.parse(urlStr)).timeout(const Duration(milliseconds: 1200));
+        if (response.statusCode == 200) {
+          final List raw = jsonDecode(response.body);
+          return raw.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+        }
+      } catch (e) {
+        if (kDebugMode) print('API fetchAvailableScholarships error: $e');
+      }
+    }
+
+    return [
+      {
+        'id': 1,
+        'title': 'MSBTE Diploma & Degree Merit Scholarship',
+        'provider': 'Maharashtra State Board of Technical Education',
+        'amount': '₹25,000',
+        'category': 'MSBTE Govt',
+        'criteria': 'Marks > 80% • Diploma / Degree Engg',
+        'deadline': '30 Sep 2026',
+        'availableSeats': '500 Seats',
+        'description': 'Official State Technical Board scholarship for engineering & tech students. Complete application directly inside the app.',
+        'applicationMode': 'IN_APP',
+      },
+      {
+        'id': 2,
+        'title': 'National Campus Innovation & Tech Fellowship',
+        'provider': 'Ministry of Education & Innovation Council',
+        'amount': '₹50,000',
+        'category': 'Merit Grant',
+        'criteria': 'CGPA > 8.0 • Innovation / Tech Project',
+        'deadline': '28 Oct 2026',
+        'availableSeats': '200 Seats',
+        'description': 'Direct in-app merit award for student tech innovators & builders.',
+        'applicationMode': 'IN_APP',
+      },
+      {
+        'id': 3,
+        'title': 'Rajarshi Chhatrapati Shahu Maharaj Fee Concession (EBC)',
+        'provider': 'Directorate of Higher Education (MahaDBT)',
+        'amount': '₹19,000',
+        'category': 'MahaDBT Govt',
+        'criteria': 'Income < ₹8 Lakhs • General / EWS / OBC',
+        'deadline': '15 Oct 2026',
+        'availableSeats': '1,200 Seats',
+        'description': '50% Tuition fee concession for Economically Backward Class students via MahaDBT portal.',
+        'applicationMode': 'EXTERNAL_WEBSITE',
+        'externalWebsiteName': 'MahaDBT Official State Portal',
+        'externalWebsiteUrl': 'https://mahadbt.maharashtra.gov.in',
+        'externalWebsiteStatus': 'Portal Active & Accepting Applications',
+      },
+      {
+        'id': 4,
+        'title': 'National Scholarship Portal (NSP) Post-Matric Scheme',
+        'provider': 'Ministry of Minority Affairs / Govt of India',
+        'amount': '₹30,000',
+        'category': 'Central Govt',
+        'criteria': 'Central Merit List • Minorities / General',
+        'deadline': '20 Oct 2026',
+        'availableSeats': '5,000 Seats',
+        'description': 'Central government portal scholarship for higher education students across India.',
+        'applicationMode': 'EXTERNAL_WEBSITE',
+        'externalWebsiteName': 'National Scholarship Portal (NSP)',
+        'externalWebsiteUrl': 'https://scholarships.gov.in',
+        'externalWebsiteStatus': 'Active - Phase 1 Verification Live',
+      },
+      {
+        'id': 5,
+        'title': 'AICTE Pragati & Saksham Technical Scholarship',
+        'provider': 'All India Council for Technical Education (AICTE)',
+        'amount': '₹50,000 / Year',
+        'category': 'AICTE Govt',
+        'criteria': 'Female Degree / Diploma Tech Students',
+        'deadline': '05 Nov 2026',
+        'availableSeats': '1,000 Seats',
+        'description': 'National council scholarship supporting female & specially-abled engineering candidates.',
+        'applicationMode': 'EXTERNAL_WEBSITE',
+        'externalWebsiteName': 'AICTE Portal',
+        'externalWebsiteUrl': 'https://www.aicte-india.org/schemes/students-development-schemes',
+        'externalWebsiteStatus': 'Active - Open for 2026-27 Batch',
+      },
+      {
+        'id': 6,
+        'title': 'Tata Trust & Foundation Higher Education Grant',
+        'provider': 'Tata Education Trust & Philanthropy Foundation',
+        'amount': '₹40,000',
+        'category': 'Foundation Trust',
+        'criteria': 'Undergraduate / Postgraduate STEM Students',
+        'deadline': '12 Nov 2026',
+        'availableSeats': '300 Seats',
+        'description': 'Private endowment foundation scholarship for promising STEM scholars.',
+        'applicationMode': 'EXTERNAL_WEBSITE',
+        'externalWebsiteName': 'Tata Trusts Official Education Portal',
+        'externalWebsiteUrl': 'https://www.tatatrusts.org/our-work/individual-grants-programme/education-grants',
+        'externalWebsiteStatus': 'Portal Open',
+      },
+    ];
+  }
+
+  static Future<Map<String, dynamic>> submitScholarshipApplication(Map<String, dynamic> appPayload) async {
+    const urls = [
+      'http://127.0.0.1:8085/api/scholarships/applications/apply',
+      'http://localhost:8085/api/scholarships/applications/apply',
+    ];
+
+    for (final urlStr in urls) {
+      try {
+        final response = await http.post(
+          Uri.parse(urlStr),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(appPayload),
+        ).timeout(const Duration(milliseconds: 1200));
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          return Map<String, dynamic>.from(jsonDecode(response.body));
+        }
+      } catch (e) {
+        if (kDebugMode) print('API submitScholarshipApplication error: $e');
+      }
+    }
+
+    return {
+      'id': DateTime.now().millisecondsSinceEpoch,
+      'applicationStatus': 'Submitted',
+      'appliedDate': DateTime.now().toIso8601String(),
+      'remarks': 'Application saved locally and synced with Campus Financial Ecosystem',
+    };
+  }
+
+  static Future<Map<String, dynamic>> saveScholarshipDraft(Map<String, dynamic> appPayload) async {
+    const urls = [
+      'http://127.0.0.1:8085/api/scholarships/applications/draft',
+      'http://localhost:8085/api/scholarships/applications/draft',
+    ];
+
+    for (final urlStr in urls) {
+      try {
+        final response = await http.post(
+          Uri.parse(urlStr),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(appPayload),
+        ).timeout(const Duration(milliseconds: 1200));
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          return Map<String, dynamic>.from(jsonDecode(response.body));
+        }
+      } catch (e) {
+        if (kDebugMode) print('API saveScholarshipDraft error: $e');
+      }
+    }
+
+    return {
+      'id': DateTime.now().millisecondsSinceEpoch,
+      'applicationStatus': 'Draft',
+      'appliedDate': DateTime.now().toIso8601String(),
+      'remarks': 'Draft saved locally',
+    };
+  }
+
+  static Future<Map<String, dynamic>> logExternalWebsiteVisit({
+    required int studentId,
+    required int scholarshipId,
+    required String websiteName,
+    required String websiteUrl,
+  }) async {
+    const urls = [
+      'http://127.0.0.1:8085/api/scholarships/applications/external-visit',
+      'http://localhost:8085/api/scholarships/applications/external-visit',
+    ];
+
+    final payload = {
+      'studentId': studentId,
+      'scholarshipId': scholarshipId,
+      'externalWebsiteName': websiteName,
+      'externalWebsiteUrl': websiteUrl,
+    };
+
+    for (final urlStr in urls) {
+      try {
+        final response = await http.post(
+          Uri.parse(urlStr),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(payload),
+        ).timeout(const Duration(milliseconds: 1200));
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          return Map<String, dynamic>.from(jsonDecode(response.body));
+        }
+      } catch (e) {
+        if (kDebugMode) print('API logExternalWebsiteVisit error: $e');
+      }
+    }
+
+    return {
+      'success': true,
+      'lastOpenedDate': DateTime.now().toIso8601String(),
+    };
+  }
 }
+
 

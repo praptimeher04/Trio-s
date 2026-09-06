@@ -2,7 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class SessionService {
   static const String _keyIsLoggedIn = 'is_logged_in';
-  static const String _keyUserType = 'user_type'; // 0: Student, 1: Reseller
+  static const String _keyUserType = 'user_type'; // 0: Student, 1: Reseller, 2: Admin
   static const String _keyLastSelectedType = 'last_selected_type';
   static const String _keyUserName = 'user_name';
   static const String _keyUserEmail = 'user_email';
@@ -55,9 +55,12 @@ class SessionService {
       final prefs = await SharedPreferences.getInstance();
       final bool isLoggedIn = prefs.getBool(_keyIsLoggedIn) ?? false;
       final int userType = prefs.getInt(_keyLastSelectedType) ?? prefs.getInt(_keyUserType) ?? 0;
-      final String userName = prefs.getString(_keyUserName) ?? 'Hitija Mhatre';
-      final String userEmail = prefs.getString(_keyUserEmail) ?? 'student@campus.edu';
-      final String userRole = prefs.getString(_keyUserRole) ?? (userType == 1 ? 'Reseller' : 'Student');
+      final String defaultRole = userType == 2 ? 'Admin' : (userType == 1 ? 'Reseller' : 'Student');
+      final String defaultName = userType == 2 ? 'Sankalp (Admin)' : (userType == 1 ? 'Purva (Reseller)' : 'Hitija Mhatre');
+      final String defaultEmail = userType == 2 ? 'sankalp@admin.campus.edu' : (userType == 1 ? 'purva@reseller.campus.edu' : 'student@campus.edu');
+      final String userName = prefs.getString(_keyUserName) ?? defaultName;
+      final String userEmail = prefs.getString(_keyUserEmail) ?? defaultEmail;
+      final String userRole = prefs.getString(_keyUserRole) ?? defaultRole;
       final String mobileNumber = prefs.getString(_keyMobileNumber) ?? '+91 98765 43210';
 
       return {

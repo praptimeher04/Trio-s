@@ -38,13 +38,19 @@ class FeatureModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final modalBg = isDark ? AppColors.darkSurface : AppColors.surface;
+    final textPrimary = isDark ? Colors.white : AppColors.textPrimary;
+    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final borderColor = isDark ? AppColors.darkSurfaceBorder : AppColors.surfaceBorder;
+
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: BoxDecoration(
+        color: modalBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -55,7 +61,7 @@ class FeatureModal extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppColors.surfaceBorder,
+              color: borderColor,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -81,18 +87,18 @@ class FeatureModal extends StatelessWidget {
                     style: GoogleFonts.poppins(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                      color: textPrimary,
                     ),
                   ),
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                  icon: Icon(Icons.close_rounded, color: textSecondary),
                 ),
               ],
             ),
           ),
-          const Divider(color: AppColors.surfaceBorder, height: 24),
+          Divider(color: borderColor, height: 24),
 
           // Modal Content Body
           Flexible(

@@ -57,14 +57,23 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final topBarBg = isDark ? AppColors.darkSurface : Colors.white;
+    final bottomBarBg = isDark ? AppColors.darkSurface : Colors.white;
+    final scaffoldBg = isDark ? AppColors.darkBackground : const Color(0xFFF8FAFC);
+    final cardBg = isDark ? AppColors.darkSurface : const Color(0xFFF9FAFB);
+    final borderColor = isDark ? AppColors.darkSurfaceBorder : const Color(0xFFF3F4F6);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF111827);
+    final textSecondary = isDark ? AppColors.darkTextSecondary : const Color(0xFF6B7280);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: topBarBg,
         elevation: 1,
-        shadowColor: Colors.black.withAlpha(15),
+        shadowColor: Colors.black.withAlpha(isDark ? 50 : 15),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back_rounded, color: textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
@@ -72,14 +81,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           style: GoogleFonts.poppins(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
+            color: textPrimary,
           ),
         ),
         actions: [
           IconButton(
             icon: Icon(
               _isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
-              color: _isSaved ? const Color(0xFF0B6E4F) : AppColors.textSecondary,
+              color: _isSaved ? const Color(0xFF0B6E4F) : textSecondary,
             ),
             onPressed: () {
               setState(() {
@@ -111,7 +120,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
+                        color: isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
@@ -139,7 +148,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     child: Container(
                       width: double.infinity,
                       height: 230,
-                      color: const Color(0xFFF3F4F6),
+                      color: isDark ? AppColors.darkSurface : const Color(0xFFF3F4F6),
                       child: _image != null && _image!.isNotEmpty
                           ? Image.network(
                               _image!,
@@ -163,7 +172,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           style: GoogleFonts.poppins(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: const Color(0xFF111827),
+                            color: textPrimary,
                           ),
                         ),
                       ),
@@ -185,7 +194,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     children: [
                       CircleAvatar(
                         radius: 18,
-                        backgroundColor: const Color(0xFFD1FAE5),
+                        backgroundColor: isDark ? const Color(0xFF064E3B) : const Color(0xFFD1FAE5),
                         child: Text(
                           _avatar,
                           style: GoogleFonts.poppins(
@@ -205,14 +214,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                               style: GoogleFonts.poppins(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: const Color(0xFF374151),
+                                color: textPrimary,
                               ),
                             ),
                             Text(
                               'Campus Peer Seller • Verified Student',
                               style: GoogleFonts.poppins(
                                 fontSize: 10.5,
-                                color: const Color(0xFF6B7280),
+                                color: textSecondary,
                               ),
                             ),
                           ],
@@ -233,7 +242,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
+                          color: isDark ? const Color(0xFF1E3A8A) : const Color(0xFFEFF6FF),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -249,7 +258,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF3E8FF),
+                          color: isDark ? const Color(0xFF581C87) : const Color(0xFFF3E8FF),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -271,7 +280,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     style: GoogleFonts.poppins(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF111827),
+                      color: textPrimary,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -279,16 +288,16 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF9FAFB),
+                      color: cardBg,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFF3F4F6)),
+                      border: Border.all(color: borderColor),
                     ),
                     child: Text(
                       _description,
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         height: 1.5,
-                        color: const Color(0xFF4B5563),
+                        color: textSecondary,
                       ),
                     ),
                   ),
@@ -302,10 +311,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: bottomBarBg,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withAlpha(12),
+                  color: Colors.black.withAlpha(isDark ? 50 : 12),
                   blurRadius: 16,
                   offset: const Offset(0, -4),
                 ),

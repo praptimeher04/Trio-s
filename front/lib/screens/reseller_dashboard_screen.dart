@@ -1264,16 +1264,22 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
             ? 'Customer Purchases'
             : 'Reseller Home';
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final topBarBg = isDark ? AppColors.darkSurface : Colors.white;
+    final bottomBarBg = isDark ? AppColors.darkSurface : Colors.white;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? AppColors.darkBackground : const Color(0xFFF8FAFC),
       appBar: AppBar(
         toolbarHeight: 64,
-        backgroundColor: Colors.white,
+        backgroundColor: topBarBg,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: _currentBottomNavIndex != 0
             ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
+                icon: Icon(Icons.arrow_back_rounded, color: textPrimary),
                 onPressed: () {
                   setState(() {
                     _currentBottomNavIndex = 0; // Return to Home tab
@@ -1281,7 +1287,7 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
                 },
               )
             : null,
-        shape: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+        shape: Border(bottom: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9), width: 1)),
         title: Row(
           children: [
             if (_currentBottomNavIndex == 0) ...[
@@ -1289,7 +1295,7 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFECFDF5),
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFECFDF5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 alignment: Alignment.center,
@@ -1303,7 +1309,7 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
             ],
             Text(
               appBarTitle,
-              style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+              style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.bold, color: textPrimary),
             ),
           ],
         ),
@@ -1317,8 +1323,8 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
                 icon: Container(
                   width: 36,
                   height: 36,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFECFDF5),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFECFDF5),
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
@@ -1393,9 +1399,9 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFECFDF5),
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFA7F3D0), width: 1.5),
+                border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFA7F3D0), width: 1.5),
               ),
               alignment: Alignment.center,
               child: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF059669), size: 20),
@@ -1433,8 +1439,8 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
             icon: Container(
               width: 36,
               height: 36,
-              decoration: const BoxDecoration(
-                color: Color(0xFFFEF2F2),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF331D1D) : const Color(0xFFFEF2F2),
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
@@ -1448,10 +1454,10 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
       body: pages[_currentBottomNavIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: bottomBarBg,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(15),
+              color: Colors.black.withAlpha(isDark ? 50 : 15),
               blurRadius: 12,
               offset: const Offset(0, -3),
             ),
@@ -1464,12 +1470,12 @@ class _ResellerDashboardScreenState extends State<ResellerDashboardScreen> {
               _currentBottomNavIndex = index;
             });
           },
-          selectedItemColor: const Color(0xFF059669),
-          unselectedItemColor: const Color(0xFF64748B),
+          selectedItemColor: isDark ? AppColors.secondary : const Color(0xFF059669),
+          unselectedItemColor: textSecondary,
           selectedLabelStyle: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold),
           unselectedLabelStyle: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500),
           type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
+          backgroundColor: bottomBarBg,
           elevation: 0,
           items: [
             const BottomNavigationBarItem(

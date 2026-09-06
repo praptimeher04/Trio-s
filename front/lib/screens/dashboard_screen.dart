@@ -32,6 +32,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _currentBottomNavIndex = 0;
   int _unreadNotifications = 3;
   int _selectedMarketplaceCategory = 0; // 0: Engineering, 1: Commerce, 2: Science, 3: Booked
+  int _selectedTrackerMonthIndex = 8; // Default to September 2026
+
+  final List<Map<String, dynamic>> _monthlySavingsData = [
+    {'month': 'Jan', 'savings': 1200.0, 'kharch': 1500.0},
+    {'month': 'Feb', 'savings': 1850.0, 'kharch': 1200.0},
+    {'month': 'Mar', 'savings': 2400.0, 'kharch': 950.0},
+    {'month': 'Apr', 'savings': 1900.0, 'kharch': 1100.0},
+    {'month': 'May', 'savings': 3100.0, 'kharch': 800.0},
+    {'month': 'Jun', 'savings': 2800.0, 'kharch': 900.0},
+    {'month': 'Jul', 'savings': 3500.0, 'kharch': 650.0},
+    {'month': 'Aug', 'savings': 2200.0, 'kharch': 700.0},
+    {'month': 'Sep', 'savings': 3900.0, 'kharch': 400.0},
+  ];
 
   final TextEditingController _searchController = TextEditingController();
   String _marketplaceSearchQuery = '';
@@ -52,10 +65,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return unique.values.toList();
   }
 
+  double _liveWalletBalance = 14500.0;
+  double _liveTotalSavings = 12450.0;
+  double _liveTotalEarnings = 7800.0;
+  double _liveTotalKharch = 8200.0;
+  int _liveSavingsCount = 14;
+
   @override
   void initState() {
     super.initState();
     _fetchMarketplaceProducts();
+    _fetchLiveAnalytics();
+  }
+
+  Future<void> _fetchLiveAnalytics() async {
+    final data = await ApiService.getLiveAnalytics(widget.userEmail);
+    if (mounted) {
+      setState(() {
+        if (data['walletBalance'] != null) {
+          _liveWalletBalance = (data['walletBalance'] as num).toDouble();
+        }
+        if (data['totalSavings'] != null) {
+          _liveTotalSavings = (data['totalSavings'] as num).toDouble();
+        }
+        if (data['totalEarnings'] != null) {
+          _liveTotalEarnings = (data['totalEarnings'] as num).toDouble();
+        }
+        if (data['totalKharch'] != null) {
+          _liveTotalKharch = (data['totalKharch'] as num).toDouble();
+        }
+        if (data['totalSavingsCount'] != null) {
+          _liveSavingsCount = (data['totalSavingsCount'] as num).toInt();
+        }
+        if (data['monthlySavings'] != null && data['monthlySavings'] is List) {
+          _monthlySavingsData.clear();
+          for (final item in data['monthlySavings']) {
+            _monthlySavingsData.add({
+              'month': item['month'].toString(),
+              'savings': (item['savings'] as num).toDouble(),
+              'kharch': (item['kharch'] as num).toDouble(),
+            });
+          }
+        }
+      });
+    }
   }
 
   Future<void> _fetchMarketplaceProducts() async {
@@ -182,11 +235,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< HEAD
     // 4 Primary Navigation Tabs: Home, Marketplace, Scholarships, Profile
     final List<Widget> pages = [
       _buildHomeDashboardView(),
       _buildMarketplaceView(),
       ScholarshipScreen(userName: _displayName),
+=======
+    // 4 Clean Tabs: Home, Marketplace, Tracker, Profile
+    final List<Widget> pages = [
+      _buildHomeDashboardView(),
+      _buildMarketplaceView(),
+      _buildTrackerView(),
+>>>>>>> e6e877d725b8e9e8bb1d827b7bf52010bddab013
       ProfileScreen(
         userName: _displayName,
         userEmail: widget.userEmail,
@@ -203,17 +264,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     ];
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final topBarBg = isDark ? AppColors.darkSurface : Colors.white;
+    final bottomBarBg = isDark ? AppColors.darkSurface : Colors.white;
+    final textPrimary = isDark ? Colors.white : AppColors.textPrimary;
+    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final iconColor = isDark ? Colors.white : AppColors.textPrimary;
+    final scaffoldBg = isDark ? AppColors.darkBackground : AppColors.background;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
         toolbarHeight: 64,
-        backgroundColor: Colors.white,
+        backgroundColor: topBarBg,
         elevation: 1,
-        shadowColor: Colors.black.withAlpha(15),
+        shadowColor: Colors.black.withAlpha(isDark ? 50 : 15),
         automaticallyImplyLeading: false,
         leading: _currentBottomNavIndex != 0
             ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
+                icon: Icon(Icons.arrow_back_rounded, color: iconColor),
                 onPressed: () {
                   setState(() {
                     _currentBottomNavIndex = 0; // Return to Home tab
@@ -227,18 +296,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                  color: textPrimary,
                 ),
               )
             : _currentBottomNavIndex == 2
                 ? Text(
+<<<<<<< HEAD
                     'Scholarship Hub',
+=======
+                    'Savings & Expense Tracker',
+>>>>>>> e6e877d725b8e9e8bb1d827b7bf52010bddab013
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                      color: textPrimary,
                     ),
                   )
+<<<<<<< HEAD
                 : GestureDetector(
                     onTap: () {
                       setState(() {
@@ -267,35 +341,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
+=======
+                : _currentBottomNavIndex == 3
+                    ? Text(
+                        'My Profile',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: textPrimary,
+                        ),
+                      )
+                    : GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _currentBottomNavIndex = 3; // Switch to Profile tab
+                          });
+                        },
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+>>>>>>> e6e877d725b8e9e8bb1d827b7bf52010bddab013
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                _displayName,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textPrimary,
-                                  height: 1.1,
+                              CircleAvatar(
+                                radius: 16,
+                                backgroundColor: AppColors.primary,
+                                child: Text(
+                                  _initials,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
-                              Text(
-                                '${widget.userRole} • #2026-CS-892',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 9.5,
-                                  color: AppColors.textSecondary,
-                                  height: 1.1,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _displayName,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: textPrimary,
+                                      height: 1.1,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    '${widget.userRole} • #2026-CS-892',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 9.5,
+                                      color: textSecondary,
+                                      height: 1.1,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
         actions: [
           // 1. Swap Icon Button (ALWAYS VISIBLE IN TOP BAR)
           IconButton(
@@ -304,9 +417,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFECFDF5),
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFA7F3D0), width: 1.5),
+                border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFA7F3D0), width: 1.5),
               ),
               alignment: Alignment.center,
               child: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF059669), size: 20),
@@ -321,7 +434,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 IconButton(
                   tooltip: 'Shopping Cart',
-                  icon: const Icon(Icons.shopping_cart_outlined, color: AppColors.textPrimary, size: 24),
+                  icon: Icon(Icons.shopping_cart_outlined, color: iconColor, size: 24),
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -373,7 +486,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               alignment: Alignment.topRight,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary, size: 24),
+                  icon: Icon(Icons.notifications_none_rounded, color: iconColor, size: 24),
                   onPressed: () => _showNotificationsModal(context),
                 ),
                 if (_unreadNotifications > 0)
@@ -407,7 +520,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // LOGOUT BUTTON
           IconButton(
             tooltip: 'Logout',
-            icon: const Icon(Icons.logout_rounded, color: AppColors.textSecondary, size: 22),
+            icon: Icon(Icons.logout_rounded, color: textSecondary, size: 22),
             onPressed: () => showLogoutConfirmationDialog(context),
           ),
           const SizedBox(width: 6),
@@ -417,13 +530,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       // SCREEN BODY (Selected Tab View)
       body: pages[_currentBottomNavIndex],
 
-      // MAIN BOTTOM NAVIGATION BAR (3 Clean Tabs)
+      // MAIN BOTTOM NAVIGATION BAR (4 Clean Tabs)
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: bottomBarBg,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(15),
+              color: Colors.black.withAlpha(isDark ? 50 : 15),
               blurRadius: 16,
               offset: const Offset(0, -4),
             ),
@@ -440,11 +553,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }
           },
           type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.textSecondary,
-          selectedLabelStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold),
-          unselectedLabelStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500),
+          backgroundColor: bottomBarBg,
+          selectedItemColor: isDark ? AppColors.secondary : AppColors.primary,
+          unselectedItemColor: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+          selectedLabelStyle: GoogleFonts.poppins(fontSize: 10.5, fontWeight: FontWeight.bold),
+          unselectedLabelStyle: GoogleFonts.poppins(fontSize: 10.5, fontWeight: FontWeight.w500),
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.home_rounded),
@@ -455,8 +568,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               label: 'Marketplace',
             ),
             BottomNavigationBarItem(
+<<<<<<< HEAD
               icon: Icon(Icons.workspace_premium_rounded),
               label: 'Scholarships',
+=======
+              icon: Icon(Icons.analytics_rounded),
+              label: 'Tracker',
+>>>>>>> e6e877d725b8e9e8bb1d827b7bf52010bddab013
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_rounded),
@@ -470,6 +588,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- TAB 1: HOME DASHBOARD VIEW ---
   Widget _buildHomeDashboardView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleColor = isDark ? Colors.white : AppColors.textPrimary;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
       child: Column(
@@ -485,7 +606,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+              color: titleColor,
             ),
           ),
           const SizedBox(height: 14),
@@ -498,7 +619,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+              color: titleColor,
             ),
           ),
           const SizedBox(height: 14),
@@ -508,10 +629,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-
-
   // --- TAB 2: MARKETPLACE VIEW ---
   Widget _buildMarketplaceView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? AppColors.darkSurface : Colors.white;
+    final borderColor = isDark ? AppColors.darkSurfaceBorder : const Color(0xFFE5E7EB);
+    final textSecondary = isDark ? AppColors.darkTextSecondary : const Color(0xFF6B7280);
+    final inputTextColor = isDark ? Colors.white : Colors.black87;
+
     final categories = [
       {'name': 'Engineering', 'icon': Icons.engineering_rounded},
       {'name': 'Commerce', 'icon': Icons.storefront_rounded},
@@ -548,19 +673,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Text(
             'Buy and sell books, equipment, and gear with verified campus peers.',
-            style: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF6B7280)),
+            style: GoogleFonts.poppins(fontSize: 12, color: textSecondary),
           ),
           const SizedBox(height: 14),
 
           // SEARCH BAR ABOVE SUB-TABS
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cardBg,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+              border: Border.all(color: borderColor),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withAlpha(8),
+                  color: Colors.black.withAlpha(isDark ? 30 : 8),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -568,6 +693,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             child: TextField(
               controller: _searchController,
+              style: GoogleFonts.poppins(fontSize: 12.5, color: inputTextColor),
               onChanged: (val) {
                 setState(() {
                   _marketplaceSearchQuery = val.trim().toLowerCase();
@@ -575,11 +701,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               },
               decoration: InputDecoration(
                 hintText: 'Search product by name, seller or department...',
-                hintStyle: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF9CA3AF)),
-                prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF6B7280), size: 20),
+                hintStyle: GoogleFonts.poppins(fontSize: 12, color: textSecondary),
+                prefixIcon: Icon(Icons.search_rounded, color: textSecondary, size: 20),
                 suffixIcon: _marketplaceSearchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear_rounded, size: 18, color: Color(0xFF6B7280)),
+                        icon: Icon(Icons.clear_rounded, size: 18, color: textSecondary),
                         onPressed: () {
                           _searchController.clear();
                           setState(() {
@@ -615,10 +741,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF0B6E4F) : Colors.white,
+                        color: isSelected ? const Color(0xFF0B6E4F) : cardBg,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isSelected ? const Color(0xFF0B6E4F) : const Color(0xFFD1D5DB),
+                          color: isSelected ? const Color(0xFF0B6E4F) : borderColor,
                         ),
                         boxShadow: isSelected
                             ? [
@@ -635,7 +761,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Icon(
                             cat['icon'] as IconData,
                             size: 16,
-                            color: isSelected ? Colors.white : const Color(0xFF4B5563),
+                            color: isSelected ? Colors.white : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF4B5563)),
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -643,7 +769,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             style: GoogleFonts.poppins(
                               fontSize: 13,
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                              color: isSelected ? Colors.white : const Color(0xFF374151),
+                              color: isSelected ? Colors.white : (isDark ? Colors.white : const Color(0xFF374151)),
                             ),
                           ),
                         ],
@@ -662,17 +788,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Text(
                 '${categories[_selectedMarketplaceCategory]['name']} Items (${currentProducts.length})',
-                style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF111827)),
+                style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF111827)),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
+                  color: isDark ? AppColors.darkSurface : const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(20),
+                  border: isDark ? Border.all(color: AppColors.darkSurfaceBorder) : null,
                 ),
                 child: Text(
                   'Verified Peers',
-                  style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF4B5563)),
+                  style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: textSecondary),
                 ),
               ),
             ],
@@ -685,17 +812,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: cardBg,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+                border: Border.all(color: borderColor),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
                     padding: const EdgeInsets.all(14),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFECFDF5),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFECFDF5),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -710,7 +837,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF111827),
+                      color: isDark ? Colors.white : const Color(0xFF111827),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -719,7 +846,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'Products published by resellers or peers will appear here.',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
-                      color: const Color(0xFF6B7280),
+                      color: textSecondary,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -853,6 +980,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildMarketplaceTile(Map<String, String> prod) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? AppColors.darkSurface : Colors.white;
+    final borderColor = isDark ? AppColors.darkSurfaceBorder : const Color(0xFFE5E7EB);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF111827);
+    final textSecondary = isDark ? AppColors.darkTextSecondary : const Color(0xFF6B7280);
+
     final title = prod['title'] ?? '';
     final price = prod['price'] ?? '';
     final seller = prod['seller'] ?? '';
@@ -867,12 +1000,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(6),
+            color: Colors.black.withAlpha(isDark ? 30 : 6),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -882,11 +1015,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-                                      builder: (context) => ProductDetailsScreen(
-                                        product: prod,
-                                        userName: _displayName,
-                                        userEmail: widget.userEmail,
-                                      ),
+              builder: (context) => ProductDetailsScreen(
+                product: prod,
+                userName: _displayName,
+                userEmail: widget.userEmail,
+              ),
             ),
           );
         },
@@ -905,7 +1038,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Container(
                       width: 64,
                       height: 64,
-                      color: const Color(0xFFF3F4F6),
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF3F4F6),
                       child: imageUrl != null && imageUrl.isNotEmpty
                           ? Image.network(
                               imageUrl,
@@ -913,12 +1046,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               height: 64,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) => Container(
-                                color: const Color(0xFFECFDF5),
+                                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFECFDF5),
                                 child: const Icon(Icons.shopping_bag_outlined, color: Color(0xFF0B6E4F), size: 28),
                               ),
                             )
                           : Container(
-                              color: const Color(0xFFECFDF5),
+                              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFECFDF5),
                               child: const Icon(Icons.shopping_bag_outlined, color: Color(0xFF0B6E4F), size: 28),
                             ),
                     ),
@@ -935,7 +1068,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           style: GoogleFonts.poppins(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            color: const Color(0xFF111827),
+                            color: textPrimary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -945,7 +1078,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           seller,
                           style: GoogleFonts.poppins(
                             fontSize: 11,
-                            color: const Color(0xFF6B7280),
+                            color: textSecondary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1225,7 +1358,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            '₹14,500.00',
+            '₹${_liveWalletBalance.toStringAsFixed(2)}',
             style: GoogleFonts.poppins(
               fontSize: 32,
               fontWeight: FontWeight.bold,
@@ -1284,22 +1417,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
       crossAxisSpacing: 12,
       childAspectRatio: 1.35,
       children: [
-        _buildMetricCard('Total Savings', '₹8,250.00', '+12% this month', Icons.savings_rounded, const Color(0xFF10B981)),
-        _buildMetricCard('Total Earnings', '₹12,400.00', 'Stipends & Grants', Icons.trending_up_rounded, const Color(0xFF059669)),
+        GestureDetector(
+          onTap: () => setState(() => _currentBottomNavIndex = 2),
+          child: _buildMetricCard('Total Savings', '₹${_liveTotalSavings.toStringAsFixed(2)}', 'Live DB Calculation', Icons.savings_rounded, const Color(0xFF10B981)),
+        ),
+        GestureDetector(
+          onTap: () => setState(() => _currentBottomNavIndex = 2),
+          child: _buildMetricCard('Marketplace Earned', '₹${_liveTotalEarnings.toStringAsFixed(2)}', 'Live Reseller Sales', Icons.trending_up_rounded, const Color(0xFF059669)),
+        ),
       ],
     );
   }
 
   Widget _buildMetricCard(String title, String value, String subtitle, IconData icon, Color iconColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? AppColors.darkSurface : Colors.white;
+    final borderColor = isDark ? AppColors.darkSurfaceBorder : AppColors.surfaceBorder;
+    final textPrimary = isDark ? Colors.white : AppColors.textPrimary;
+    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.surfaceBorder),
+        border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(8),
+            color: Colors.black.withAlpha(isDark ? 30 : 8),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -1315,7 +1460,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Flexible(
                 child: Text(
                   title,
-                  style: GoogleFonts.poppins(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                  style: GoogleFonts.poppins(fontSize: 11.5, fontWeight: FontWeight.w600, color: textSecondary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1329,7 +1474,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          Text(value, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(value, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
           Text(subtitle, style: GoogleFonts.poppins(fontSize: 10, color: iconColor, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
@@ -1337,8 +1482,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+<<<<<<< HEAD
   // --- MAIN FEATURE GRID (Scholarships, Marketplace, Wallet, Savings, Fee Tracker) ---
+=======
+  // --- MAIN FEATURE GRID (Marketplace, Reseller Panel, Wallet, Tracker, Savings, Fee Tracker) ---
+>>>>>>> e6e877d725b8e9e8bb1d827b7bf52010bddab013
   Widget _buildMainFeatureGrid(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? AppColors.darkSurface : Colors.white;
+    final borderColor = isDark ? AppColors.darkSurfaceBorder : AppColors.surfaceBorder;
+    final textPrimary = isDark ? Colors.white : AppColors.textPrimary;
+    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+
     final List<Map<String, dynamic>> features = [
       {
         'title': 'Scholarships',
@@ -1355,6 +1510,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'onTap': () => setState(() => _currentBottomNavIndex = 1),
       },
       {
+        'title': 'Savings Tracker',
+        'subtitle': 'Graphs & Kharch Analysis',
+        'icon': Icons.analytics_rounded,
+        'color': const Color(0xFF10B981),
+        'onTap': () => setState(() => _currentBottomNavIndex = 2),
+      },
+      {
         'title': 'Reseller Panel',
         'subtitle': 'Swap to Seller Mode (Type 1)',
         'icon': Icons.swap_horiz_rounded,
@@ -1365,7 +1527,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'title': 'Wallet',
         'subtitle': 'Manage Accounts & Cards',
         'icon': Icons.account_balance_wallet_rounded,
-        'color': const Color(0xFF10B981),
+        'color': const Color(0xFF0284C7),
         'onTap': () => _openWalletModal(context),
       },
       {
@@ -1379,7 +1541,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'title': 'Fee Tracker',
         'subtitle': 'Tuition & Hostel Fees',
         'icon': Icons.receipt_long_rounded,
-        'color': const Color(0xFF0284C7),
+        'color': const Color(0xFF8B5CF6),
         'onTap': () => _openFeeTrackerModal(context),
       },
     ];
@@ -1403,12 +1565,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cardBg,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.surfaceBorder),
+              border: Border.all(color: borderColor),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withAlpha(8),
+                  color: Colors.black.withAlpha(isDark ? 30 : 8),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1424,8 +1586,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Icon(feat['icon'] as IconData, color: color, size: 24),
                 ),
                 const SizedBox(height: 12),
-                Text(feat['title'] as String, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                Text(feat['subtitle'] as String, style: GoogleFonts.poppins(fontSize: 10.5, color: AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(feat['title'] as String, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: textPrimary)),
+                Text(feat['subtitle'] as String, style: GoogleFonts.poppins(fontSize: 10.5, color: textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -1617,6 +1779,631 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           Text(amount, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7))),
+        ],
+      ),
+    );
+  }
+
+  // --- TAB 3: SAVINGS & EXPENSE TRACKER VIEW ---
+  Widget _buildTrackerView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? AppColors.darkSurface : Colors.white;
+    final borderColor = isDark ? AppColors.darkSurfaceBorder : const Color(0xFFE2E8F0);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B);
+
+    final selectedMonthData = _monthlySavingsData[_selectedTrackerMonthIndex];
+    final double maxSavings = _monthlySavingsData.map((e) => e['savings'] as double).reduce((a, b) => a > b ? a : b);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // HEADER HERO BANNER
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF064E3B), Color(0xFF059669), Color(0xFF10B981)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF059669).withAlpha(60),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withAlpha(40),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.analytics_rounded, color: Colors.white, size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Student Savings Tracker',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '2026 ANALYTICS',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '₹${_liveTotalSavings.toStringAsFixed(2)}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  'Total Cumulative Student Money Saved',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.white70,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withAlpha(30),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Marketplace Saved & Earned', style: GoogleFonts.poppins(fontSize: 10, color: Colors.white70)),
+                            const SizedBox(height: 2),
+                            Text('₹${_liveTotalEarnings.toStringAsFixed(2)}', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withAlpha(30),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Total Kharch (Spent)', style: GoogleFonts.poppins(fontSize: 10, color: Colors.white70)),
+                            const SizedBox(height: 2),
+                            Text('₹${_liveTotalKharch.toStringAsFixed(2)}', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFFFECACA))),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // 2x2 METRICS GRID
+          Text(
+            'Financial Breakdown Cards',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.3,
+            children: [
+              _buildTrackerCard(
+                title: 'Student Savings',
+                amount: '₹${_liveTotalSavings.toStringAsFixed(2)}',
+                subtitle: 'Discounts & Waivers',
+                icon: Icons.school_rounded,
+                color: const Color(0xFF059669),
+                bgColor: isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5),
+              ),
+              _buildTrackerCard(
+                title: 'Marketplace Saved/Earned',
+                amount: '₹${_liveTotalEarnings.toStringAsFixed(2)}',
+                subtitle: 'Used Books & Resale',
+                icon: Icons.storefront_rounded,
+                color: const Color(0xFF0D9488),
+                bgColor: isDark ? const Color(0xFF134E4A) : const Color(0xFFCCFBF1),
+              ),
+              _buildTrackerCard(
+                title: 'Total Saving Count',
+                amount: '$_liveSavingsCount Saved Items',
+                subtitle: 'Cumulative Items',
+                icon: Icons.tag_rounded,
+                color: const Color(0xFF2563EB),
+                bgColor: isDark ? const Color(0xFF1E3A8A) : const Color(0xFFEFF6FF),
+              ),
+              _buildTrackerCard(
+                title: 'Total Kharch',
+                amount: '₹${_liveTotalKharch.toStringAsFixed(2)}',
+                subtitle: 'Campus Expenditure',
+                icon: Icons.payments_rounded,
+                color: const Color(0xFFDC2626),
+                bgColor: isDark ? const Color(0xFF450A0A) : const Color(0xFFFEF2F2),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // MONTHLY SAVINGS GRAPH
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: borderColor),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(isDark ? 30 : 8),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Monthly Savings Graph',
+                          style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'Month-by-month savings growth (2026)',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.trending_up_rounded, color: Color(0xFF059669), size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            '+34% YoY',
+                            style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF059669)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // SELECTED MONTH HIGHLIGHT POPUP CARD
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkBackground : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.calendar_month_rounded, color: Color(0xFF059669), size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Month: ${selectedMonthData['month']} 2026',
+                            style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: textPrimary),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Text('Savings: ', style: GoogleFonts.poppins(fontSize: 11, color: textSecondary)),
+                          Text('₹${(selectedMonthData['savings'] as double).toStringAsFixed(0)}', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w800, color: const Color(0xFF059669))),
+                          const SizedBox(width: 10),
+                          Text('Kharch: ', style: GoogleFonts.poppins(fontSize: 11, color: textSecondary)),
+                          Text('₹${(selectedMonthData['kharch'] as double).toStringAsFixed(0)}', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFFDC2626))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // BAR CHART IMPLEMENTATION
+                SizedBox(
+                  height: 160,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: List.generate(_monthlySavingsData.length, (index) {
+                      final item = _monthlySavingsData[index];
+                      final savingsVal = item['savings'] as double;
+                      final isSelected = index == _selectedTrackerMonthIndex;
+                      final double barHeightRatio = (savingsVal / maxSavings).clamp(0.15, 1.0);
+
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedTrackerMonthIndex = index;
+                          });
+                        },
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              '₹${(savingsVal / 1000).toStringAsFixed(1)}k',
+                              style: GoogleFonts.poppins(
+                                fontSize: 9,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? const Color(0xFF059669) : textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              width: 22,
+                              height: 110 * barHeightRatio,
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFF059669) : (isDark ? const Color(0xFF334155) : const Color(0xFFD1D5DB)),
+                                borderRadius: BorderRadius.circular(6),
+                                gradient: isSelected
+                                    ? const LinearGradient(
+                                        colors: [Color(0xFF10B981), Color(0xFF047857)],
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                      )
+                                    : null,
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: const Color(0xFF059669).withAlpha(80),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : [],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isSelected ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5)) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                item['month'] as String,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 10,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  color: isSelected ? const Color(0xFF059669) : textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // DETAILED TRANSACTIONS & KHARCH BREAKDOWN LIST
+          Text(
+            'Recent Savings & Kharch Breakdown',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildTrackerTransactionTile(
+            title: 'Data Structures Book (Cormen)',
+            category: 'Marketplace • Textbook',
+            date: 'Sep 4, 2026',
+            kharch: '₹350',
+            saved: '₹450',
+            icon: Icons.book_rounded,
+            iconColor: const Color(0xFF2563EB),
+          ),
+          _buildTrackerTransactionTile(
+            title: 'Casio Scientific Calculator',
+            category: 'Marketplace • Electronics',
+            date: 'Sep 2, 2026',
+            kharch: '₹600',
+            saved: '₹900',
+            icon: Icons.calculate_rounded,
+            iconColor: const Color(0xFF0D9488),
+          ),
+          _buildTrackerTransactionTile(
+            title: 'Tuition Fee Early Bird Subsidy',
+            category: 'Student Savings • Fee Discount',
+            date: 'Aug 28, 2026',
+            kharch: '₹5,000',
+            saved: '₹2,500',
+            icon: Icons.card_membership_rounded,
+            iconColor: const Color(0xFF059669),
+          ),
+          _buildTrackerTransactionTile(
+            title: 'Sold Engineering Drawing Kit',
+            category: 'Marketplace • Reseller Profit',
+            date: 'Aug 15, 2026',
+            kharch: '+₹1,200',
+            saved: '₹1,200',
+            icon: Icons.sell_rounded,
+            iconColor: const Color(0xFFEC4899),
+            isProfit: true,
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrackerCard({
+    required String title,
+    required String amount,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? AppColors.darkSurface : Colors.white;
+    final borderColor = isDark ? AppColors.darkSurfaceBorder : const Color(0xFFE2E8F0);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(isDark ? 30 : 8),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 16),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color.withAlpha(20),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'TRACKED',
+                  style: GoogleFonts.poppins(fontSize: 8.5, fontWeight: FontWeight.bold, color: color),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            amount,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: textPrimary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            subtitle,
+            style: GoogleFonts.poppins(
+              fontSize: 9.5,
+              color: textSecondary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrackerTransactionTile({
+    required String title,
+    required String category,
+    required String date,
+    required String kharch,
+    required String saved,
+    required IconData icon,
+    required Color iconColor,
+    bool isProfit = false,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? AppColors.darkSurface : Colors.white;
+    final borderColor = isDark ? AppColors.darkSurfaceBorder : const Color(0xFFE2E8F0);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(isDark ? 30 : 6),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconColor.withAlpha(20),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$category • $date',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10.5,
+                    color: textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                isProfit ? 'Earned: $kharch' : 'Kharch: $kharch',
+                style: GoogleFonts.poppins(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  color: isProfit ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'Saved: $saved',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF059669),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

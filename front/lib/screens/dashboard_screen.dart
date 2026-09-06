@@ -403,6 +403,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
               ],
             ),
+          ],
           // LOGOUT BUTTON
           IconButton(
             tooltip: 'Logout',

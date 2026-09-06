@@ -1020,6 +1020,7 @@ class ApiService {
       'success': true,
       'lastOpenedDate': DateTime.now().toIso8601String(),
     };
+  }
 
   // --- REAL-TIME SUPABASE CHAT API METHODS ---
   static const List<String> chatBaseUrls = [

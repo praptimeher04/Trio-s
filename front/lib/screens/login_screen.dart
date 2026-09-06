@@ -6,6 +6,8 @@ import '../services/api_service.dart';
 import '../services/session_service.dart';
 import 'register_screen.dart';
 import 'reseller_login_screen.dart';
+import 'dashboard_screen.dart';
+import 'reseller_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final String? initialEmail;

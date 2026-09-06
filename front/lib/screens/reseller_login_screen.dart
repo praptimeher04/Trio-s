@@ -68,57 +68,58 @@ class _ResellerLoginScreenState extends State<ResellerLoginScreen> {
       return;
     }
 
-    final int? userId = res['userId'] != null ? int.tryParse(res['userId'].toString()) : null;
-    int userType = returnedType == 0 && res['success'] == true ? 1 : returnedType;
-    String resellerName = res['name'] ?? (emailInput.isNotEmpty ? emailInput.split('@')[0] : 'Purva Mhatre');
-    String resellerEmail = res['email'] ?? emailInput;
-    String resellerMobile = res['mobileNumber'] ?? '+91 98765 43210';
-    String userRole = res['role'] ?? (userType == 1 ? 'Reseller' : 'Student');
+    if (res['success'] == true) {
+      final int? userId = res['userId'] != null ? int.tryParse(res['userId'].toString()) : null;
+      int userType = returnedType == 0 ? 1 : returnedType;
+      String resellerName = res['name'] ?? (emailInput.isNotEmpty ? emailInput.split('@')[0] : 'Purva Mhatre');
+      String resellerEmail = res['email'] ?? emailInput;
+      String resellerMobile = res['mobileNumber'] ?? '+91 98765 43210';
+      String userRole = res['role'] ?? (userType == 1 ? 'Reseller' : 'Student');
 
-    if (userId != null && userId > 0) {
-      final dbUser = await ApiService.getUserById(userId);
-      if (dbUser != null) {
-        if (dbUser['userType'] != null) {
-          userType = dbUser['userType'] is int ? dbUser['userType'] : (int.tryParse(dbUser['userType'].toString()) ?? 0);
+      if (userId != null && userId > 0) {
+        final dbUser = await ApiService.getUserById(userId);
+        if (dbUser != null) {
+          if (dbUser['userType'] != null) {
+            userType = dbUser['userType'] is int ? dbUser['userType'] : (int.tryParse(dbUser['userType'].toString()) ?? 0);
+          }
+          if (dbUser['name'] != null) resellerName = dbUser['name'].toString();
+          if (dbUser['email'] != null) resellerEmail = dbUser['email'].toString();
+          if (dbUser['role'] != null) userRole = dbUser['role'].toString();
+          if (dbUser['mobileNumber'] != null) resellerMobile = dbUser['mobileNumber'].toString();
         }
-        if (dbUser['name'] != null) resellerName = dbUser['name'].toString();
-        if (dbUser['email'] != null) resellerEmail = dbUser['email'].toString();
-        if (dbUser['role'] != null) userRole = dbUser['role'].toString();
-        if (dbUser['mobileNumber'] != null) resellerMobile = dbUser['mobileNumber'].toString();
       }
-    }
 
-    if (userType == 1) {
-      await SessionService.saveSession(
-        isLoggedIn: true,
-        userId: userId,
-        userType: 1,
-        userName: resellerName,
-        userEmail: resellerEmail,
-        userRole: 'Reseller',
-        mobileNumber: resellerMobile,
-      );
+      if (userType == 1) {
+        await SessionService.saveSession(
+          isLoggedIn: true,
+          userId: userId,
+          userType: 1,
+          userName: resellerName,
+          userEmail: resellerEmail,
+          userRole: 'Reseller',
+          mobileNumber: resellerMobile,
+        );
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Welcome Reseller $resellerName!'),
-          backgroundColor: const Color(0xFF0B6E4F),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => ResellerDashboardScreen(
-            resellerName: resellerName,
-            resellerEmail: resellerEmail,
-            resellerMobile: resellerMobile,
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Welcome Reseller $resellerName!'),
+            backgroundColor: const Color(0xFF0B6E4F),
+            behavior: SnackBarBehavior.floating,
           ),
-        ),
-      );
-    } else {
+        );
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => ResellerDashboardScreen(
+              resellerName: resellerName,
+              resellerEmail: resellerEmail,
+              resellerMobile: resellerMobile,
+            ),
+          ),
+        );
+      } else {
         await SessionService.saveSession(
           isLoggedIn: true,
           userId: userId,
@@ -157,7 +158,6 @@ class _ResellerLoginScreenState extends State<ResellerLoginScreen> {
         ),
       );
     }
->>>>>>> f6a156fca0b1d04e342d405482965d2125fe6c19
   }
 
   @override
